@@ -9,6 +9,9 @@ option(USE_MFC_TOOLS
 option(MONOLITH
 		"Embed game logic into main executable" ON)
 		
+option(USE_LEGACY_SOUND_SYSTEM
+		"Use the original Doom 3 sound system" OFF)
+		
 #option(STANDALONE
 #		"Skip Doom 3 base/ folder" ON)
 
@@ -327,6 +330,20 @@ set(SOUND_SOURCES
 	sound/SoundVoice.cpp
 	sound/WaveFile.cpp
 	)
+	
+set(SOUND_LEGACY_INCLUDES
+	sound/snd_local.h
+	sound/sound.h)
+	
+set(SOUND_LEGACY_SOURCES
+	sound/snd_cache.cpp
+	sound/snd_decoder.cpp
+	#sound/snd_efxfile.cpp
+	sound/snd_emitter.cpp
+	sound/snd_shader.cpp
+	sound/snd_system.cpp
+	sound/snd_wavefile.cpp
+	sound/snd_world.cpp)
 	
 set(XAUDIO2_INCLUDES
 	sound/XAudio2/XA2_SoundHardware.h
