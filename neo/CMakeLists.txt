@@ -332,18 +332,18 @@ set(SOUND_SOURCES
 	)
 	
 set(SOUND_LEGACY_INCLUDES
-	sound/snd_local.h
-	sound/sound.h)
+	sound_legacy/snd_local.h
+	sound_legacy/sound.h)
 	
 set(SOUND_LEGACY_SOURCES
-	sound/snd_cache.cpp
-	sound/snd_decoder.cpp
-	#sound/snd_efxfile.cpp
-	sound/snd_emitter.cpp
-	sound/snd_shader.cpp
-	sound/snd_system.cpp
-	sound/snd_wavefile.cpp
-	sound/snd_world.cpp)
+	sound_legacy/snd_cache.cpp
+	sound_legacy/snd_decoder.cpp
+	#sound_legacy/snd_efxfile.cpp
+	sound_legacy/snd_emitter.cpp
+	sound_legacy/snd_shader.cpp
+	sound_legacy/snd_system.cpp
+	sound_legacy/snd_wavefile.cpp
+	sound_legacy/snd_world.cpp)
 	
 set(XAUDIO2_INCLUDES
 	sound/XAudio2/XA2_SoundHardware.h
@@ -729,6 +729,11 @@ source_group("libs\\freetype" FILES ${FREETYPE_SOURCES})
 source_group("sound" FILES ${SOUND_INCLUDES})
 source_group("sound" FILES ${SOUND_SOURCES})
 
+if(USE_LEGACY_SOUND_SYSTEM)
+	source_group("sound_legacy" FILES ${SOUND_LEGACY_INCLUDES})
+	source_group("sound_legacy" FILES ${SOUND_LEGACY_SOURCES})
+endif()
+
 source_group("sound\\XAudio2" FILES ${XAUDIO2_INCLUDES})
 source_group("sound\\XAudio2" FILES ${XAUDIO2_SOURCES})
 
@@ -847,8 +852,6 @@ set(RBDOOM3_SOURCES
 			${ZLIB_INCLUDES} ${ZLIB_SOURCES}
 			#${GLEW_INCLUDES} ${GLEW_SOURCES}
 			#${FREETYPE_SOURCES}
-			${SOUND_INCLUDES} ${SOUND_SOURCES}
-			#${OGGVORBIS_INCLUDES} ${OGGVORBIS_SOURCES}
 			${UI_INCLUDES} ${UI_SOURCES}
 			${SWF_INCLUDES} ${SWF_SOURCES}
 			
@@ -895,6 +898,17 @@ include_directories(
 
 if(MSVC)
 
+	if(USE_LEGACY_SOUND_SYSTEM)
+		add_definitions(-DUSE_LEGACY_SOUND_SYSTEM)
+		list(APPEND RBDOOM3_SOURCES
+			${SOUND_LEGACY_INCLUDES} ${SOUND_LEGACY_SOURCES}
+			${OGGVORBIS_INCLUDES} ${OGGVORBIS_SOURCES})
+	else()
+		list(APPEND RBDOOM3_SOURCES
+			${SOUND_INCLUDES} ${SOUND_SOURCES}
+			${XAUDIO2_INCLUDES} ${XAUDIO2_SOURCES})
+	endif()
+
 	if(MSVC_VERSION EQUAL 1700)
 		set(DirectX_LIBRARIES
 			dinput8
@@ -904,11 +918,9 @@ if(MSVC)
 			Xinput
 			xaudio2.lib
 			)
-		add_definitions(-DUSE_XINPUT)
 	else()
 		find_package(DirectX REQUIRED)
 		include_directories(${DirectX_INCLUDE_DIR})
-		add_definitions(-DUSE_XINPUT)
 	endif()
 	
 	if(USE_MFC_TOOLS)
@@ -942,7 +954,6 @@ if(MSVC)
 	
 	list(APPEND RBDOOM3_SOURCES
 		${SYS_INCLUDES} ${SYS_SOURCES}
-		${XAUDIO2_INCLUDES} ${XAUDIO2_SOURCES}
 		${WIN32_INCLUDES} ${WIN32_SOURCES} ${WIN32_RESOURCES})
 		
 

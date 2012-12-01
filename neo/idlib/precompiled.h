@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -92,7 +93,14 @@ const int MAX_EXPRESSION_REGISTERS = 4096;
 #include "../renderer/RenderWorld.h"
 
 // sound engine
+
+// RB: added support for old sound engine
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+#include "../sound_legacy/sound.h"
+#else
 #include "../sound/sound.h"
+#endif
+// RB end
 
 // user interfaces
 #include "../ui/ListGUI.h"
