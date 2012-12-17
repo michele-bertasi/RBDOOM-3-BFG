@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -26,7 +27,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 #pragma hdrstop
-#include "../../idLib/precompiled.h"
+#include "../../idlib/precompiled.h"
 #include "../Game_local.h"
 #include "../../framework/Common_local.h"
 
@@ -270,26 +271,33 @@ bool idMenuScreen_Shell_PressStart::HandleAction( idWidgetAction& action, const 
 				}
 			}
 			
+			// RB begin
+#if defined(USE_DOOMCLASSIC)
 			if( itemList->GetMoveToIndex() == 0 )
 			{
 				common->SwitchToGame( DOOM_CLASSIC );
 			}
-			else if( itemList->GetMoveToIndex() == 1 )
-			{
-				if( session->GetSignInManager().GetMasterLocalUser() == NULL )
+			else
+#endif
+				if( itemList->GetMoveToIndex() == 1 )
 				{
-					const int device = event.parms[ 0 ].ToInteger();
-					session->GetSignInManager().RegisterLocalUser( device );
+					if( session->GetSignInManager().GetMasterLocalUser() == NULL )
+					{
+						const int device = event.parms[ 0 ].ToInteger();
+						session->GetSignInManager().RegisterLocalUser( device );
+					}
+					else
+					{
+						menuData->SetNextScreen( SHELL_AREA_ROOT, MENU_TRANSITION_SIMPLE );
+					}
 				}
-				else
+#if defined(USE_DOOMCLASSIC)
+				else if( itemList->GetMoveToIndex() == 2 )
 				{
-					menuData->SetNextScreen( SHELL_AREA_ROOT, MENU_TRANSITION_SIMPLE );
+					common->SwitchToGame( DOOM2_CLASSIC );
 				}
-			}
-			else if( itemList->GetMoveToIndex() == 2 )
-			{
-				common->SwitchToGame( DOOM2_CLASSIC );
-			}
+#endif
+			// RB end
 			
 			return true;
 		}

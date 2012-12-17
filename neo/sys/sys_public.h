@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -425,7 +426,7 @@ struct sysMemoryStats_t
 	int availExtendedVirtual;
 };
 
-typedef unsigned long address_t;
+// typedef unsigned long address_t; // DG: this isn't even used
 
 void			Sys_Init();
 void			Sys_Shutdown();
@@ -518,17 +519,13 @@ bool			Sys_UnlockMemory( void* ptr, int bytes );
 // set amount of physical work memory
 void			Sys_SetPhysicalWorkMemory( int minBytes, int maxBytes );
 
-// allows retrieving the call stack at execution points
-void			Sys_GetCallStack( address_t* callStack, const int callStackSize );
-const char* 	Sys_GetCallStackStr( const address_t* callStack, const int callStackSize );
-const char* 	Sys_GetCallStackCurStr( int depth );
-const char* 	Sys_GetCallStackCurAddressStr( int depth );
-void			Sys_ShutdownSymbols();
-
 // DLL loading, the path should be a fully qualified OS path to the DLL file to be loaded
-int				Sys_DLL_Load( const char* dllName );
-void* 			Sys_DLL_GetProcAddress( int dllHandle, const char* procName );
-void			Sys_DLL_Unload( int dllHandle );
+
+// RB: 64 bit fixes, changed int to intptr_t
+intptr_t		Sys_DLL_Load( const char* dllName );
+void* 			Sys_DLL_GetProcAddress( intptr_t dllHandle, const char* procName );
+void			Sys_DLL_Unload( intptr_t dllHandle );
+// RB end
 
 // event generation
 void			Sys_GenerateEvents();
@@ -566,7 +563,14 @@ void			Sys_ShowConsole( int visLevel, bool quitOnClose );
 
 // This really isn't the right place to have this, but since this is the 'top level' include
 // and has a function signature with 'FILE' in it, it kinda needs to be here =/
+
+// RB begin
+#if defined(_WIN32)
 typedef HANDLE idFileHandle;
+#else
+typedef FILE* idFileHandle;
+#endif
+// RB end
 
 
 ID_TIME_T		Sys_FileTimeStamp( idFileHandle fp );
@@ -766,11 +770,6 @@ public:
 	
 	virtual bool			LockMemory( void* ptr, int bytes ) = 0;
 	virtual bool			UnlockMemory( void* ptr, int bytes ) = 0;
-	
-	virtual void			GetCallStack( address_t* callStack, const int callStackSize ) = 0;
-	virtual const char* 	GetCallStackStr( const address_t* callStack, const int callStackSize ) = 0;
-	virtual const char* 	GetCallStackCurStr( int depth ) = 0;
-	virtual void			ShutdownSymbols() = 0;
 	
 	virtual int				DLL_Load( const char* dllName ) = 0;
 	virtual void* 			DLL_GetProcAddress( int dllHandle, const char* procName ) = 0;

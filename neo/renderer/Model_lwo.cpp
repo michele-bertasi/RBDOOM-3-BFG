@@ -2311,7 +2311,7 @@ int lwGetPolygons5( idFile* fp, int cksize, lwPolygonList* plist, int ptoffset )
 			bp += 2;
 		}
 		j -= 1;
-		pp->surf = ( lwSurface* ) j;
+		pp->surf = ( lwSurface* ) j; // DG: FIXME: cast int to pointer?!
 		
 		pp++;
 		pv += nv;
@@ -2835,7 +2835,7 @@ int lwResolvePolySurfaces( lwPolygonList* polygon, lwTagList* tlist,
 						   lwSurface** surf, int* nsurfs )
 {
 	lwSurface** s, *st;
-	int i, index;
+	int i;
 	
 	if( tlist->count == 0 ) return 1;
 	
@@ -2855,10 +2855,13 @@ int lwResolvePolySurfaces( lwPolygonList* polygon, lwTagList* tlist,
 			st = st->next;
 		}
 	}
-	
+	// RB: 64 bit fixes
+	uintptr_t index;
 	for( i = 0; i < polygon->count; i++ )
 	{
-		index = ( int ) polygon->pol[ i ].surf;
+		index = ( uintptr_t ) polygon->pol[ i ].surf;
+		// RB end
+		
 		if( index < 0 || index > tlist->count ) return 0;
 		if( !s[ index ] )
 		{
@@ -3051,7 +3054,7 @@ int lwGetPolygonTags( idFile* fp, int cksize, lwTagList* tlist, lwPolygonList* p
 		switch( type )
 		{
 			case ID_SURF:
-				plist->pol[ i ].surf = ( lwSurface* ) j;
+				plist->pol[ i ].surf = ( lwSurface* ) j; // DG: FIXME: cast int to pointer?!
 				break;
 			case ID_PART:
 				plist->pol[ i ].part = j;

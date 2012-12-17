@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -306,7 +307,9 @@ idCVar  idFileSystemLocal::fs_game_base( "fs_game_base", "", CVAR_SYSTEM | CVAR_
 
 idCVar	fs_basepath( "fs_basepath", "", CVAR_SYSTEM | CVAR_INIT, "" );
 idCVar	fs_savepath( "fs_savepath", "", CVAR_SYSTEM | CVAR_INIT, "" );
-idCVar	fs_resourceLoadPriority( "fs_resourceLoadPriority", "1", CVAR_SYSTEM , "if 1, open requests will be honored from resource files first; if 0, the resource files are checked after normal search paths" );
+// RB: defaulted fs_resourceLoadPriority to 0 for better modding
+idCVar	fs_resourceLoadPriority( "fs_resourceLoadPriority", "0", CVAR_SYSTEM , "if 1, open requests will be honored from resource files first; if 0, the resource files are checked after normal search paths" );
+// RB end
 idCVar	fs_enableBackgroundCaching( "fs_enableBackgroundCaching", "1", CVAR_SYSTEM , "if 1 allow the 360 to precache game files in the background" );
 
 idFileSystemLocal	fileSystemLocal;
@@ -455,7 +458,8 @@ idFileHandle idFileSystemLocal::OpenOSFile( const char* fileName, fsMode_t mode 
 {
 	idFileHandle fp;
 	
-	
+	// RB begin
+#if defined(_WIN32)
 	DWORD dwAccess = 0;
 	DWORD dwShare = 0;
 	DWORD dwCreate = 0;
@@ -488,6 +492,84 @@ idFileHandle idFileSystemLocal::OpenOSFile( const char* fileName, fsMode_t mode 
 	{
 		return NULL;
 	}
+#else
+	
+#ifndef __MWERKS__
+#ifndef WIN32
+	// some systems will let you fopen a directory
+	struct stat buf;
+	if( stat( fileName, &buf ) != -1 && !S_ISREG( buf.st_mode ) )
+	{
+		return NULL;
+	}
+#endif
+#endif
+	
+	if( mode == FS_WRITE )
+	{
+		fp = fopen( fileName, "wb" );
+	}
+	else if( mode == FS_READ )
+	{
+		fp = fopen( fileName, "rb" );
+	}
+	else if( mode == FS_APPEND )
+	{
+		fp = fopen( fileName, "ab" );
+	}
+	
+	if( !fp )//&& fs_caseSensitiveOS.GetBool() )
+	{
+		// RB: really any proper OS other than Windows should have a case sensitive filesystem
+		idStr fpath, entry;
+		idStrList list;
+	
+		fpath = fileName;
+		fpath.StripFilename();
+		fpath.StripTrailing( PATHSEPARATOR_CHAR );
+		if( ListOSFiles( fpath, NULL, list ) == -1 )
+		{
+			return NULL;
+		}
+	
+		for( int i = 0; i < list.Num(); i++ )
+		{
+			entry = fpath + PATHSEPARATOR_CHAR + list[i];
+			if( !entry.Icmp( fileName ) )
+			{
+				if( mode == FS_WRITE )
+				{
+					fp = fopen( entry, "wb" );
+				}
+				else if( mode == FS_READ )
+				{
+					fp = fopen( entry, "rb" );
+				}
+				else if( mode == FS_APPEND )
+				{
+					fp = fopen( entry, "ab" );
+				}
+	
+				if( fp )
+				{
+					if( fs_debug.GetInteger() )
+					{
+						common->Printf( "idFileSystemLocal::OpenFileRead: changed %s to %s\n", fileName, entry.c_str() );
+					}
+					break;
+				}
+				else
+				{
+					// not supposed to happen if ListOSFiles is doing it's job correctly
+					common->Warning( "idFileSystemLocal::OpenFileRead: fs_caseSensitiveOS 1 could not open %s", entry.c_str() );
+				}
+			}
+		}
+	}
+	
+#endif
+	// RB end
+	
 	return fp;
 }
 
@@ -498,7 +580,13 @@ idFileSystemLocal::CloseOSFile
 */
 void idFileSystemLocal::CloseOSFile( idFileHandle o )
 {
+	// RB begin
+#if defined(_WIN32)
 	::CloseHandle( o );
+#else
+	fclose( o );
+#endif
+	// RB end
 }
 
 /*
@@ -508,7 +596,21 @@ idFileSystemLocal::DirectFileLength
 */
 int idFileSystemLocal::DirectFileLength( idFileHandle o )
 {
+	// RB begin
+#if defined(_WIN32)
 	return GetFileSize( o, NULL );
+#else
+	int		pos;
+	int		end;
+	
+	pos = ftell( o );
+	fseek( o, 0, SEEK_END );
+	end = ftell( o );
+	fseek( o, pos, SEEK_SET );
+	
+	return end;
+#endif
+	// RB end
 }
 
 /*
@@ -533,7 +635,13 @@ void idFileSystemLocal::CreateOSPath( const char* OSPath )
 	}
 	
 	idStrStatic< MAX_OSPATH > path( OSPath );
+	
+	// RB begin
+#if defined(_WIN32)
 	path.SlashesToBackSlashes();
+#endif
+	// RB end
+	
 	for( ofs = &path[ 1 ]; *ofs ; ofs++ )
 	{
 		if( *ofs == PATHSEPARATOR_CHAR )
@@ -1773,11 +1881,25 @@ void idFileSystemLocal::RemoveFile( const char* relativePath )
 	if( fs_basepath.GetString()[0] )
 	{
 		OSPath = BuildOSPath( fs_basepath.GetString(), gameFolder, relativePath );
+		
+		// RB begin
+#if defined(_WIN32)
 		::DeleteFile( OSPath );
+#else
+		remove( OSPath );
+#endif
+		// RB end
 	}
 	
 	OSPath = BuildOSPath( fs_savepath.GetString(), gameFolder, relativePath );
+	
+	// RB begin
+#if defined(_WIN32)
 	::DeleteFile( OSPath );
+#else
+	remove( OSPath );
+#endif
+	// RB end
 }
 
 /*
@@ -1835,18 +1957,6 @@ int idFileSystemLocal::ReadFile( const char* relativePath, void** buffer, ID_TIM
 		*buffer = NULL;
 	}
 	
-	if( buffer == NULL && timestamp != NULL && resourceFiles.Num() > 0 )
-	{
-		static idResourceCacheEntry rc;
-		int size = 0;
-		if( GetResourceCacheEntry( relativePath, rc ) )
-		{
-			*timestamp = 0;
-			size = rc.length;
-		}
-		return size;
-	}
-	
 	buf = NULL;	// quiet compiler warning
 	
 	// if this is a .cfg file and we are playing back a journal, read
@@ -1892,10 +2002,25 @@ int idFileSystemLocal::ReadFile( const char* relativePath, void** buffer, ID_TIM
 	f = OpenFileRead( relativePath, ( buffer != NULL ) );
 	if( f == NULL )
 	{
+		// RB: moved here
+		if( buffer == NULL && timestamp != NULL && resourceFiles.Num() > 0 )
+		{
+			static idResourceCacheEntry rc;
+			int size = 0;
+			if( GetResourceCacheEntry( relativePath, rc ) )
+			{
+				*timestamp = 0;
+				size = rc.length;
+			}
+			return size;
+		}
+		// RB end
+		
 		if( buffer )
 		{
 			*buffer = NULL;
 		}
+		
 		return -1;
 	}
 	len = f->Length();
@@ -2006,6 +2131,8 @@ bool idFileSystemLocal::RenameFile( const char* relativePath, const char* newNam
 	idStr oldOSPath = BuildOSPath( path, gameFolder, relativePath );
 	idStr newOSPath = BuildOSPath( path, gameFolder, newName );
 	
+	// RB begin
+#if defined(_WIN32)
 	// this gives atomic-delete-on-rename, like POSIX rename()
 	// There is a MoveFileTransacted() on vista and above, not sure if that means there
 	// is a race condition inside MoveFileEx...
@@ -2016,6 +2143,17 @@ bool idFileSystemLocal::RenameFile( const char* relativePath, const char* newNam
 		const int err = GetLastError();
 		idLib::Warning( "RenameFile( %s, %s ) error %i", newOSPath.c_str(), oldOSPath.c_str(), err );
 	}
+#else
+	const bool success = ( rename( oldOSPath.c_str(), newOSPath.c_str() ) == 0 );
+	
+	if( !success )
+	{
+		const int err = errno;
+		idLib::Warning( "rename( %s, %s ) error %s", newOSPath.c_str(), oldOSPath.c_str(), strerror( errno ) );
+	}
+#endif
+	// RB end
+	
 	return success;
 }
 
@@ -2664,7 +2802,7 @@ void idFileSystemLocal::CreateCRCsForResourceFileList( const idFileList& list )
 		}
 		
 		// All tables read, now seek to each one and calculate the CRC.
-		idTempArray< unsigned long > innerFileCRCs( numFileResources );
+		idTempArray< unsigned int > innerFileCRCs( numFileResources ); // DG: use int instead of long for 64bit compatibility
 		for( int innerFileIndex = 0; innerFileIndex < numFileResources; ++innerFileIndex )
 		{
 			const char* innerFileDataBegin = currentFile->GetDataPtr() + cacheEntries[innerFileIndex].offset;
@@ -2673,7 +2811,7 @@ void idFileSystemLocal::CreateCRCsForResourceFileList( const idFileList& list )
 		}
 		
 		// Get the CRC for all the CRCs.
-		const unsigned long totalCRC = CRC32_BlockChecksum( innerFileCRCs.Ptr(), innerFileCRCs.Size() );
+		const unsigned int totalCRC = CRC32_BlockChecksum( innerFileCRCs.Ptr(), innerFileCRCs.Size() ); // DG: use int instead of long for 64bit compatibility
 		
 		// Write the .crc file corresponding to the .resources file.
 		idStr crcFilename = list.GetFile( fileIndex );
@@ -2681,7 +2819,9 @@ void idFileSystemLocal::CreateCRCsForResourceFileList( const idFileList& list )
 		std::auto_ptr<idFile> crcOutputFile( fileSystem->OpenFileWrite( crcFilename, "fs_basepath" ) );
 		if( crcOutputFile.get() == NULL )
 		{
-			idLib::Printf( "Error writing CRC file %s.\n", crcFilename );
+			// RB: fixed potential crash because of "cannot pass objects of non-trivially-copyable type 'class idStr' through '...'"
+			idLib::Printf( "Error writing CRC file %s.\n", crcFilename.c_str() );
+			// RB end
 			continue;
 		}
 		

@@ -29,7 +29,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 
 #include "Game_local.h"
-#include "..\..\doomclassic\doom\doomdef.h"
+#include "../../doomclassic/doom/doomdef.h"
 
 idCVar achievements_Verbose( "achievements_Verbose", "1", CVAR_BOOL, "debug spam" );
 idCVar g_demoMode( "g_demoMode", "0", CVAR_INTEGER, "this is a demo" );
@@ -109,8 +109,8 @@ idAchievementManager::idAchievementManager
 ========================
 */
 idAchievementManager::idAchievementManager() :
-	lastImpKilledTime( 0 ),
 	lastPlayerKilledTime( 0 ),
+	lastImpKilledTime( 0 ),
 	playerTookDamage( false )
 {
 	counts.Zero();
@@ -360,6 +360,8 @@ idAchievementManager::CheckDoomClassicsAchievements
 Processed when the player finishes a level.
 ========================
 */
+// RB begin
+#if defined(USE_DOOMCLASSIC)
 void idAchievementManager::CheckDoomClassicsAchievements( int killcount, int itemcount, int secretcount, int skill, int mission, int map, int episode, int totalkills, int totalitems, int totalsecret )
 {
 
@@ -504,6 +506,8 @@ void idAchievementManager::CheckDoomClassicsAchievements( int killcount, int ite
 		
 	}
 }
+#endif // #if defined(USE_DOOMCLASSIC)
+// RB end
 
 /*
 =================

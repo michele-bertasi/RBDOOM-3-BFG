@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -31,20 +32,33 @@ If you have questions concerning this license or the applicable additional terms
 /*
 ================================================================================================
 
-	PC Windows
+	Non-portable system services.
 
 ================================================================================================
 */
 
+// Win32
+#if defined(WIN32) || defined(_WIN32)
 
 #define	CPUSTRING						"x86"
 
 #define	BUILD_STRING					"win-" CPUSTRING
 #define BUILD_OS_ID						0
 
+#ifdef _MSC_VER
 #define ALIGN16( x )					__declspec(align(16)) x
 #define ALIGNTYPE16						__declspec(align(16))
 #define ALIGNTYPE128					__declspec(align(128))
+#else
+// DG: mingw/GCC (and probably clang) support
+#define ALIGN16( x )					x __attribute__ ((aligned (16)))
+// FIXME: change ALIGNTYPE* ?
+#define ALIGNTYPE16
+#define ALIGNTYPE128
+// DG end
+#endif
+
+
 #define FORMAT_PRINTF( x )
 
 #define PATHSEPARATOR_STR				"\\"
@@ -52,8 +66,13 @@ If you have questions concerning this license or the applicable additional terms
 #define NEWLINE							"\r\n"
 
 #define ID_INLINE						inline
+#ifdef _MSC_VER
 #define ID_FORCE_INLINE					__forceinline
-
+#else
+// DG: this should at least work with GCC/MinGW, probably with clang as well..
+#define ID_FORCE_INLINE					inline // TODO: always_inline?
+// DG end
+#endif
 // lint complains that extern used with definition is a hazard, but it
 // has the benefit (?) of making it illegal to take the address of the function
 #ifdef _lint
@@ -61,13 +80,70 @@ If you have questions concerning this license or the applicable additional terms
 #define ID_FORCE_INLINE_EXTERN			__forceinline
 #else
 #define ID_INLINE_EXTERN				extern inline
+#ifdef _MSC_VER
 #define ID_FORCE_INLINE_EXTERN			extern __forceinline
+#else
+// DG: GCC/MinGW, probably clang
+#define ID_FORCE_INLINE_EXTERN			extern inline // TODO: always_inline ?
+// DG end
 #endif
+#endif
+
+// DG: #pragma hdrstop is only available on MSVC, so make sure it doesn't cause compiler warnings on other compilers..
+#ifdef _MSC_VER
+// afaik __pragma is a MSVC specific alternative to #pragma that can be used in macros
+#define ID_HDRSTOP __pragma(hdrstop)
+#else
+#define ID_HDRSTOP
+#endif // DG end
 
 // we should never rely on this define in our code. this is here so dodgy external libraries don't get confused
 #ifndef WIN32
 #define WIN32
 #endif
+
+
+#elif defined(__linux__)
+
+#if defined(__i386__)
+#define	CPUSTRING						"x86"
+#elif defined(__x86_64__)
+#define CPUSTRING						"x86_86"
+#endif
+
+#define	BUILD_STRING					"linux-" CPUSTRING
+#define BUILD_OS_ID						2
+
+#define _alloca							alloca
+
+#define ALIGN16( x )					x __attribute__ ((aligned (16)))
+#define ALIGNTYPE16						__attribute__ ((aligned (16)))
+#define ALIGNTYPE128					__attribute__ ((aligned (128)))
+
+#define FORMAT_PRINTF( x )
+
+#define PATHSEPARATOR_STR				"/"
+#define PATHSEPARATOR_CHAR				'/'
+#define NEWLINE							"\n"
+
+#define ID_INLINE						inline
+
+// DG: this should at least work with GCC/MinGW, probably with clang as well..
+#define ID_FORCE_INLINE					inline // TODO: always_inline?
+// DG end
+
+#define ID_INLINE_EXTERN				extern inline
+
+// DG: GCC/MinGW, probably clang
+#define ID_FORCE_INLINE_EXTERN			extern inline // TODO: always_inline ?
+// DG end
+
+#define ID_HDRSTOP
+#define CALLBACK
+#define __cdecl
+
+#endif
+// RB end
 
 /*
 ================================================================================================
@@ -79,8 +155,10 @@ Defines and macros usable in all code
 
 #define ALIGN( x, a ) ( ( ( x ) + ((a)-1) ) & ~((a)-1) )
 
-#define _alloca16( x )					((void *)ALIGN( (UINT_PTR)_alloca( ALIGN( x, 16 ) + 16 ), 16 ) )
-#define _alloca128( x )					((void *)ALIGN( (UINT_PTR)_alloca( ALIGN( x, 128 ) + 128 ), 128 ) )
+// RB: changed UINT_PTR to uintptr_t
+#define _alloca16( x )					((void *)ALIGN( (uintptr_t)_alloca( ALIGN( x, 16 ) + 16 ), 16 ) )
+#define _alloca128( x )					((void *)ALIGN( (uintptr_t)_alloca( ALIGN( x, 128 ) + 128 ), 128 ) )
+// RB end
 
 #define likely( x )	( x )
 #define unlikely( x )	( x )
@@ -108,6 +186,7 @@ bulk of the codebase, so it is the best place for analyze pragmas.
 ================================================================================================
 */
 
+#ifdef _MSC_VER
 // disable some /analyze warnings here
 #pragma warning( disable: 6255 )	// warning C6255: _alloca indicates failure by raising a stack overflow exception. Consider using _malloca instead. (Note: _malloca requires _freea.)
 #pragma warning( disable: 6262 )	// warning C6262: Function uses '36924' bytes of stack: exceeds /analyze:stacksize'32768'. Consider moving some data to heap
@@ -128,12 +207,30 @@ bulk of the codebase, so it is the best place for analyze pragmas.
 // checking format strings catches a LOT of errors
 #include <CodeAnalysis\SourceAnnotations.h>
 #define	VERIFY_FORMAT_STRING	[SA_FormatString(Style="printf")]
+// DG: alternative for GCC with attribute (NOOP for MSVC)
+#define ATTRIBUTE_PRINTF(STRIDX, FIRSTARGIDX)
 
+#elif defined(__GNUC__) // FIXME: what about clang?
+#define	VERIFY_FORMAT_STRING
+// STRIDX: index of format string in function arguments (first arg == 1)
+// FIRSTARGIDX: index of first argument for the format string
+#define ATTRIBUTE_PRINTF(STRIDX, FIRSTARGIDX) __attribute__ ((format (printf, STRIDX, FIRSTARGIDX)))
+// DG end
+#endif // _MSC_VER
 
 // We need to inform the compiler that Error() and FatalError() will
 // never return, so any conditions that leeds to them being called are
 // guaranteed to be false in the following code
+
+// RB begin
+#if defined(_MSC_VER)
 #define NO_RETURN __declspec(noreturn)
+#elif defined(__GNUC__)
+#define NO_RETURN __attribute__((noreturn))
+#else
+#define NO_RETURN
+#endif
+// RB end
 
 
 // I don't want to disable "warning C6031: Return value ignored" from /analyze

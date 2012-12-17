@@ -1729,7 +1729,7 @@ void idPlayer::SetupWeaponEntity()
 	for( w = 0; w < MAX_WEAPONS; w++ )
 	{
 		weap = spawnArgs.GetString( va( "def_weapon%d", w ) );
-		if( weap != NULL && *weap != NULL )
+		if( weap != NULL && *weap != '\0' )
 		{
 			idWeapon::CacheWeapon( weap );
 		}
@@ -4936,7 +4936,7 @@ idDict* idPlayer::FindInventoryItem( const char* name )
 	for( int i = 0; i < inventory.items.Num(); i++ )
 	{
 		const char* iname = inventory.items[i]->GetString( "inv_name" );
-		if( iname != NULL && *iname != NULL )
+		if( iname != NULL && *iname != '\0' )
 		{
 			if( idStr::Icmp( name, iname ) == 0 )
 			{
@@ -8477,7 +8477,7 @@ void idPlayer::RunPhysics_RemoteClientCorrection()
 		const float serverSpeedSquared = physicsObj.GetLinearVelocity().LengthSqr();
 		const float clientSpeedSquared = usercmd.speedSquared;
 		
-		if( std::abs( serverSpeedSquared - clientSpeedSquared ) > pm_clientAuthoritative_minSpeedSquared.GetFloat() )
+		if( fabsf( serverSpeedSquared - clientSpeedSquared ) > pm_clientAuthoritative_minSpeedSquared.GetFloat() )
 		{
 			idVec3 normalizedVelocity = physicsObj.GetLinearVelocity();
 			

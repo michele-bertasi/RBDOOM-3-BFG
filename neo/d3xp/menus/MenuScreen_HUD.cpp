@@ -26,7 +26,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 #pragma hdrstop
-#include "../../idLib/precompiled.h"
+#include "../../idlib/precompiled.h"
 #include "../Game_local.h"
 
 extern idCVar pm_stamina;
@@ -545,7 +545,7 @@ void idMenuScreen_HUD::GiveWeapon( idPlayer* player, int weaponIndex )
 	
 	const char* weapnum = va( "def_weapon%d", weaponIndex );
 	const char* weap = player->spawnArgs.GetString( weapnum );
-	if( weap != NULL && *weap != NULL )
+	if( weap != NULL && *weap != '\0' )
 	{
 		const idDeclEntityDef* weaponDef = gameLocal.FindEntityDef( weap, false );
 		if( weaponDef != NULL )
@@ -1141,7 +1141,7 @@ void idMenuScreen_HUD::UpdateWeaponStates( idPlayer* player, bool weaponChanged 
 				const idMaterial* hudIcon = NULL;
 				const char* weapNum = weaponDefNames[ weaponIndex ];
 				const char* weap = player->spawnArgs.GetString( weapNum );
-				if( weap != NULL && *weap != NULL )
+				if( weap != NULL && *weap != '\0' )
 				{
 					const idDeclEntityDef* weaponDef = gameLocal.FindEntityDef( weap, false );
 					if( weaponDef != NULL )
@@ -1205,7 +1205,7 @@ void idMenuScreen_HUD::UpdateWeaponStates( idPlayer* player, bool weaponChanged 
 			{
 				hasWeapons = true;
 				const char* weap = player->spawnArgs.GetString( weapnum );
-				if( weap != NULL && *weap != NULL )
+				if( weap != NULL && *weap != '\0' )
 				{
 					weapstate++;
 				}
@@ -2273,7 +2273,10 @@ void idMenuScreen_HUD::UpdateChattingHud( idPlayer* player )
 		{
 			mpChatObject->StopFrame( 1 );
 			gui->ForceInhibitControl( false );
-			gui->SetGlobal( "focusWindow", NULL );
+			
+			// RB: 64 bit fixes, changed NULL to 0
+			gui->SetGlobal( "focusWindow", 0 );
+			// RB end
 		}
 	}
 	else

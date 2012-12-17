@@ -26,7 +26,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 #pragma hdrstop
-#include "../../idLib/precompiled.h"
+#include "../../idlib/precompiled.h"
 #include "../Game_local.h"
 
 /*
@@ -133,7 +133,7 @@ void idMenuWidget_PDA_UserData::Update()
 		if( txtClearance != NULL )
 		{
 			const char* security = pda->GetSecurity();
-			if( *security == NULL )
+			if( *security == '\0' )
 			{
 				txtClearance->SetText( idLocalization::GetString( "#str_00066" ) );
 			}

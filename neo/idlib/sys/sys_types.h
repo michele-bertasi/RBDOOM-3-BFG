@@ -40,7 +40,7 @@ typedef unsigned char		byte;		// 8 bits
 typedef unsigned short		word;		// 16 bits
 typedef unsigned int		dword;		// 32 bits
 typedef unsigned int		uint;
-typedef unsigned long		ulong;
+// typedef unsigned long		ulong; // DG: long should be avoided.
 
 typedef signed char			int8;
 typedef unsigned char		uint8;
@@ -161,7 +161,12 @@ ID_INLINE void WriteIndexPair( triIndex_t* dest, const triIndex_t a, const triIn
 #if defined(_DEBUG) || defined(_lint)
 #define NODEFAULT	default: assert( 0 )
 #else
+#ifdef _MSVC
 #define NODEFAULT	default: __assume( 0 )
+#else // not _MSVC
+// TODO: is that __assume an important optimization? if so, is there a gcc equivalent?
+#define NODEFAULT
+#endif
 #endif
 
 /*

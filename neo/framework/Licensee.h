@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -37,7 +38,7 @@ If you have questions concerning this license or the applicable additional terms
 #define GAME_NAME						"DOOM 3: BFG Edition"		// appears on window titles and errors
 #define SAVE_PATH						"\\id Software\\DOOM 3 BFG"
 
-#define ENGINE_VERSION					"D3BFG 1"	// printed in console
+#define ENGINE_VERSION					"RBD3BFG 1"	// printed in console
 
 #define	BASE_GAMEDIR					"base"
 
@@ -56,3 +57,14 @@ If you have questions concerning this license or the applicable additional terms
 #define WIN32_CONSOLE_CLASS				"D3BFG_WinConsole"
 #define	WIN32_WINDOW_CLASS_NAME			"D3BFG"
 #define	WIN32_FAKE_WINDOW_CLASS_NAME	"D3BFG_WGL_FAKE"
+
+// RB begin
+// Linux info
+#ifdef ID_DEMO_BUILD
+#define LINUX_DEFAULT_PATH				"/usr/local/games/rbdoom3-bfg-demo"
+#else
+#define LINUX_DEFAULT_PATH				"/usr/local/games/rbdoom3-bfg"
+#endif
+// RB end
+
+

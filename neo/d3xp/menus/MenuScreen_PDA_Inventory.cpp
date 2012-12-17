@@ -26,7 +26,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 #pragma hdrstop
-#include "../../idLib/precompiled.h"
+#include "../../idlib/precompiled.h"
 #include "../Game_local.h"
 
 static const int NUM_INVENTORY_ITEMS_VISIBLE = 9;
@@ -123,7 +123,7 @@ void idMenuScreen_PDA_Inventory::ShowScreen( const mainMenuTransition_t transiti
 		{
 		
 			const char* weap = GetWeaponName( j );
-			if( weap == NULL || *weap == NULL )
+			if( weap == NULL || *weap == '\0' )
 			{
 				continue;
 			}
@@ -226,7 +226,7 @@ void idMenuScreen_PDA_Inventory::Update()
 	{
 	
 		const char* weap = GetWeaponName( j );
-		if( weap == NULL || *weap == NULL )
+		if( weap == NULL || *weap == '\0' )
 		{
 			continue;
 		}
@@ -313,7 +313,7 @@ void idMenuScreen_PDA_Inventory::EquipWeapon()
 	{
 	
 		const char* weap = GetWeaponName( j );
-		if( weap == NULL || *weap == NULL )
+		if( weap == NULL || *weap == '\0' )
 		{
 			continue;
 		}

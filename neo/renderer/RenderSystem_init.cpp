@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -31,8 +32,13 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "tr_local.h"
 
+// RB begin
+#if defined(_WIN32)
+
 // Vista OpenGL wrapper check
 #include "../sys/win32/win_local.h"
+#endif
+// RB end
 
 // DeviceContext bypasses RenderSystem to work directly with this
 idGuiModel* tr_guiModel;
@@ -74,7 +80,7 @@ idCVar r_useStateCaching( "r_useStateCaching", "1", CVAR_RENDERER | CVAR_BOOL, "
 
 idCVar r_znear( "r_znear", "3", CVAR_RENDERER | CVAR_FLOAT, "near Z clip plane distance", 0.001f, 200.0f );
 
-idCVar r_ignoreGLErrors( "r_ignoreGLErrors", "1", CVAR_RENDERER | CVAR_BOOL, "ignore GL errors" );
+idCVar r_ignoreGLErrors( "r_ignoreGLErrors", "0", CVAR_RENDERER | CVAR_BOOL, "ignore GL errors" );
 idCVar r_swapInterval( "r_swapInterval", "1", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_INTEGER, "0 = tear, 1 = swap-tear where available, 2 = always v-sync" );
 
 idCVar r_gamma( "r_gamma", "1.0", CVAR_RENDERER | CVAR_ARCHIVE | CVAR_FLOAT, "changes gamma tables", 0.5f, 3.0f );
@@ -91,7 +97,9 @@ idCVar r_skipDynamicTextures( "r_skipDynamicTextures", "0", CVAR_RENDERER | CVAR
 idCVar r_skipCopyTexture( "r_skipCopyTexture", "0", CVAR_RENDERER | CVAR_BOOL, "do all rendering, but don't actually copyTexSubImage2D" );
 idCVar r_skipBackEnd( "r_skipBackEnd", "0", CVAR_RENDERER | CVAR_BOOL, "don't draw anything" );
 idCVar r_skipRender( "r_skipRender", "0", CVAR_RENDERER | CVAR_BOOL, "skip 3D rendering, but pass 2D" );
-idCVar r_skipRenderContext( "r_skipRenderContext", "0", CVAR_RENDERER | CVAR_BOOL, "NULL the rendering context during backend 3D rendering" );
+// RB begin
+idCVar r_skipRenderContext( "r_skipRenderContext", "0", CVAR_RENDERER | CVAR_BOOL, "DISABLED: NULL the rendering context during backend 3D rendering" );
+// RB end
 idCVar r_skipTranslucent( "r_skipTranslucent", "0", CVAR_RENDERER | CVAR_BOOL, "skip the translucent interaction rendering" );
 idCVar r_skipAmbient( "r_skipAmbient", "0", CVAR_RENDERER | CVAR_BOOL, "bypasses all non-interaction drawing" );
 idCVar r_skipNewAmbient( "r_skipNewAmbient", "0", CVAR_RENDERER | CVAR_BOOL | CVAR_ARCHIVE, "bypasses all vertex/fragment program ambient drawing" );
@@ -195,7 +203,9 @@ idCVar stereoRender_deGhost( "stereoRender_deGhost", "0.05", CVAR_FLOAT | CVAR_A
 
 // GL_ARB_multitexture
 PFNGLACTIVETEXTUREPROC					qglActiveTextureARB;
-PFNGLCLIENTACTIVETEXTUREPROC			qglClientActiveTextureARB;
+// RB: deprecated
+//PFNGLCLIENTACTIVETEXTUREPROC			qglClientActiveTextureARB;
+// RB end
 
 // GL_EXT_direct_state_access
 PFNGLBINDMULTITEXTUREEXTPROC			qglBindMultiTextureEXT;
@@ -319,7 +329,9 @@ void APIENTRY glBindMultiTextureEXT( GLenum texunit, GLenum target, GLuint textu
 R_CheckExtension
 =================
 */
-bool R_CheckExtension( char* name )
+// RB begin
+static bool R_CheckExtension( const char* name )
+// RB end
 {
 	if( !strstr( glConfig.extensions_string, name ) )
 	{
@@ -343,8 +355,15 @@ static void CALLBACK DebugCallback( unsigned int source, unsigned int type,
 									unsigned int id, unsigned int severity, int length, const char* message, void* userParam )
 {
 	// it probably isn't safe to do an idLib::Printf at this point
+	
+	// RB begin
+#if defined(_WIN32)
 	OutputDebugString( message );
 	OutputDebugString( "\n" );
+#else
+	printf( "%s\n", message );
+#endif
+	// RB end
 }
 
 /*
@@ -379,7 +398,9 @@ static void R_CheckPortableExtensions()
 	if( glConfig.multitextureAvailable )
 	{
 		qglActiveTextureARB = ( void( APIENTRY* )( GLenum ) )GLimp_ExtensionPointer( "glActiveTextureARB" );
-		qglClientActiveTextureARB = ( void( APIENTRY* )( GLenum ) )GLimp_ExtensionPointer( "glClientActiveTextureARB" );
+		// RB: deprecated
+		//qglClientActiveTextureARB = ( void( APIENTRY* )( GLenum ) )GLimp_ExtensionPointer( "glClientActiveTextureARB" );
+		// RB end
 	}
 	
 	// GL_EXT_direct_state_access
@@ -849,6 +870,10 @@ void R_InitOpenGL()
 		common->FatalError( "R_InitOpenGL called while active" );
 	}
 	
+	// DG: make sure SDL has setup video so getting supported modes in R_SetNewMode() works
+	GLimp_PreInit();
+	// DG end
+	
 	R_SetNewMode( true );
 	
 	
@@ -919,6 +944,8 @@ void R_InitOpenGL()
 	// Reset our gamma
 	R_SetColorMappings();
 	
+	// RB begin
+#if defined(_WIN32)
 	static bool glCheck = false;
 	if( !glCheck && win32.osversion.dwMajorVersion == 6 )
 	{
@@ -943,6 +970,8 @@ void R_InitOpenGL()
 			}
 		}
 	}
+#endif
+	// RB end
 }
 
 /*
@@ -1633,9 +1662,9 @@ void R_MakeAmbientMap_f( const idCmdArgs& args )
 	renderView_t	ref;
 	viewDef_t	primary;
 	int			downSample;
-	char*	extensions[6] =  { "_px.tga", "_nx.tga", "_py.tga", "_ny.tga",
-							   "_pz.tga", "_nz.tga"
-						   };
+	const char*	extensions[6] =  { "_px.tga", "_nx.tga", "_py.tga", "_ny.tga",
+								   "_pz.tga", "_nz.tga"
+								 };
 	int			outSize;
 	byte*		buffers[6];
 	int			width = 0, height = 0;
@@ -1849,6 +1878,8 @@ void GfxInfo_f( const idCmdArgs& args )
 	
 	common->Printf( "-------\n" );
 	
+	// RB begin
+#if defined(_WIN32)
 	// WGL_EXT_swap_interval
 	typedef BOOL ( WINAPI * PFNWGLSWAPINTERVALEXTPROC )( int interval );
 	extern	PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
@@ -1861,6 +1892,8 @@ void GfxInfo_f( const idCmdArgs& args )
 	{
 		common->Printf( "swapInterval not forced\n" );
 	}
+#endif
+	// RB end
 	
 	if( glConfig.stereoPixelFormatAvailable && glConfig.isStereoPixelFormat )
 	{

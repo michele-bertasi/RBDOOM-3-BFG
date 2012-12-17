@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -38,16 +39,29 @@ If you have questions concerning this license or the applicable additional terms
 ================================================================================================
 */
 
+// RB begin
+#if defined(_WIN32)
 typedef CRITICAL_SECTION		mutexHandle_t;
 typedef HANDLE					signalHandle_t;
 typedef LONG					interlockedInt_t;
+#else
+typedef pthread_mutex_t			mutexHandle_t;
+typedef pthread_cond_t			signalHandle_t;
+typedef int						interlockedInt_t;
+#endif
+// RB end
 
 // _ReadWriteBarrier() does not translate to any instructions but keeps the compiler
 // from reordering read and write instructions across the barrier.
 // MemoryBarrier() inserts and CPU instruction that keeps the CPU from reordering reads and writes.
+#if defined(_MSC_VER)
 #pragma intrinsic(_ReadWriteBarrier)
 #define SYS_MEMORYBARRIER		_ReadWriteBarrier(); MemoryBarrier()
-
+#elif defined(__GNUC__) // FIXME: what about clang?
+// according to http://en.wikipedia.org/wiki/Memory_ordering the following should be equivalent to the stuff above..
+//#ifdef __sync_syncronize
+#define SYS_MEMORYBARRIER		asm volatile("" ::: "memory");__sync_synchronize()
+#endif
 
 
 
@@ -61,7 +75,8 @@ typedef LONG					interlockedInt_t;
 ================================================================================================
 */
 
-
+// RB: added POSIX implementation
+#if defined(_WIN32)
 class idSysThreadLocalStorage
 {
 public:
@@ -69,26 +84,66 @@ public:
 	{
 		tlsIndex = TlsAlloc();
 	}
+	
 	idSysThreadLocalStorage( const ptrdiff_t& val )
 	{
 		tlsIndex = TlsAlloc();
 		TlsSetValue( tlsIndex, ( LPVOID )val );
 	}
+	
 	~idSysThreadLocalStorage()
 	{
 		TlsFree( tlsIndex );
 	}
+	
 	operator ptrdiff_t()
 	{
 		return ( ptrdiff_t )TlsGetValue( tlsIndex );
 	}
+	
 	const ptrdiff_t& operator = ( const ptrdiff_t& val )
 	{
 		TlsSetValue( tlsIndex, ( LPVOID )val );
 		return val;
 	}
+	
 	DWORD	tlsIndex;
 };
+#else
+class idSysThreadLocalStorage
+{
+public:
+	idSysThreadLocalStorage()
+	{
+		pthread_key_create( &key, NULL );
+	}
+
+	idSysThreadLocalStorage( const ptrdiff_t& val )
+	{
+		pthread_key_create( &key, NULL );
+		pthread_setspecific( key, ( const void* ) val );
+	}
+
+	~idSysThreadLocalStorage()
+	{
+		pthread_key_delete( key );
+	}
+
+	operator ptrdiff_t()
+	{
+		return ( ptrdiff_t )pthread_getspecific( key );
+	}
+
+	const ptrdiff_t& operator = ( const ptrdiff_t& val )
+	{
+		pthread_setspecific( key, ( const void* ) val );
+		return val;
+	}
+
+	pthread_key_t	key;
+};
+#endif
+// RB end
 
 #define ID_TLS idSysThreadLocalStorage
 
@@ -135,15 +190,20 @@ uintptr_t			Sys_CreateThread( xthread_t function, void* parms, xthreadPriority p
 									  const char* name, core_t core, int stackSize = DEFAULT_THREAD_STACK_SIZE,
 									  bool suspended = false );
 
-void				Sys_WaitForThread( uintptr_t threadHandle );
+// RB begin
+// removed unused Sys_WaitForThread
 void				Sys_DestroyThread( uintptr_t threadHandle );
 void				Sys_SetCurrentThreadName( const char* name );
 
+// use alternative pthread implementation in idSysSignal
+#if defined(_WIN32)
 void				Sys_SignalCreate( signalHandle_t& handle, bool manualReset );
 void				Sys_SignalDestroy( signalHandle_t& handle );
 void				Sys_SignalRaise( signalHandle_t& handle );
 void				Sys_SignalClear( signalHandle_t& handle );
 bool				Sys_SignalWait( signalHandle_t& handle, int timeout );
+#endif
+// RB end
 
 void				Sys_MutexCreate( mutexHandle_t& handle );
 void				Sys_MutexDestroy( mutexHandle_t& handle );

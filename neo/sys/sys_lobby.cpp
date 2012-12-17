@@ -53,7 +53,9 @@ idCVar net_ignoreConnects( "net_ignoreConnects", "0", CVAR_INTEGER, "Test as if 
 
 idCVar net_skipGoodbye( "net_skipGoodbye", "0", CVAR_BOOL, "" );
 
-extern unsigned long NetGetVersionChecksum();
+// RB: 64 bit fixes, changed long to int
+extern unsigned int NetGetVersionChecksum();
+// RB end
 
 /*
 ========================
@@ -1571,7 +1573,7 @@ void idLobby::SendConnectionRequest()
 	idBitMsg msg( buffer, sizeof( buffer ) );
 	
 	// Add the current version info to the handshake
-	const unsigned long localChecksum = NetGetVersionChecksum();
+	const unsigned int localChecksum = NetGetVersionChecksum(); // DG: use int instead of long for 64bit compatibility
 	
 	NET_VERBOSE_PRINT( "NET: version = %i\n", localChecksum );
 	
@@ -1752,11 +1754,11 @@ idLobby::CheckVersion
 */
 bool idLobby::CheckVersion( idBitMsg& msg, lobbyAddress_t peerAddress )
 {
-	const unsigned long remoteChecksum = msg.ReadLong();
+	const unsigned int remoteChecksum = msg.ReadLong(); // DG: use int instead of long for 64bit compatibility
 	
 	if( net_checkVersion.GetInteger() == 1 )
 	{
-		const unsigned long localChecksum = NetGetVersionChecksum();
+		const unsigned int localChecksum = NetGetVersionChecksum(); // DG: use int instead of long for 64bit compatibility
 		
 		NET_VERBOSE_PRINT( "NET: Comparing handshake version - localChecksum = %i, remoteChecksum = %i\n", localChecksum, remoteChecksum );
 		return ( remoteChecksum == localChecksum );
@@ -2310,7 +2312,9 @@ uint32 idLobby::GetPartyTokenAsHost()
 	{
 		// I don't know if this is mathematically sound, but it seems reasonable.
 		// Don't do this at app startup (i.e. in the constructor) or it will be a lot less random.
-		unsigned long seed = Sys_Milliseconds(); // time app has been running
+		// DG: use int instead of long for 64bit compatibility
+		unsigned int seed = Sys_Milliseconds(); // time app has been running
+		// DG end
 		idLocalUser* masterUser = session->GetSignInManager().GetMasterLocalUser();
 		if( masterUser != NULL )
 		{
@@ -2863,7 +2867,7 @@ void idLobby::HandleReliableMsg( int p, idBitMsg& msg )
 		// This message is sent from the peers to state they are done loading the map
 		VERIFY_CONNECTED_PEER( p, actingGameStateLobbyType, RELIABLE_LOADING_DONE );
 		
-		unsigned long networkChecksum = 0;
+		unsigned int networkChecksum = 0; // DG: use int instead of long for 64bit compatibility
 		networkChecksum = msg.ReadLong();
 		
 		peer.networkChecksum = networkChecksum;

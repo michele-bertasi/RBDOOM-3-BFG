@@ -97,12 +97,13 @@ struct netVersion_s
 NetGetVersionChecksum
 ========================
 */
-unsigned long NetGetVersionChecksum()
+// RB: 64 bit fixes, changed long to int
+unsigned int NetGetVersionChecksum()
 {
 #if 0
 	return idStr( com_version.GetString() ).Hash();
 #else
-	unsigned long ret = 0;
+	unsigned int ret = 0;
 	
 	CRC32_InitChecksum( ret );
 	CRC32_UpdateChecksum( ret, netVersion.string, idStr::Length( netVersion.string ) );
@@ -113,6 +114,7 @@ unsigned long NetGetVersionChecksum()
 	return ret;
 #endif
 }
+// RB end
 
 /*
 ========================
@@ -4392,8 +4394,8 @@ idNetSessionPort::idNetSessionPort
 ========================
 */
 idNetSessionPort::idNetSessionPort() :
-	forcePacketDropPrev( 0.0f ),
-	forcePacketDropCurr( 0.0f )
+	forcePacketDropCurr( 0.0f ),
+	forcePacketDropPrev( 0.0f )
 {
 }
 
@@ -4590,7 +4592,7 @@ void idSessionLocal::ListServersCommon()
 	idBitMsg msg( buffer, sizeof( buffer ) );
 	
 	// Add the current version info to the query
-	const unsigned long localChecksum = NetGetVersionChecksum();
+	const unsigned int localChecksum = NetGetVersionChecksum(); // DG: use int instead of long for 64bit compatibility
 	
 	NET_VERBOSE_PRINT( "ListServers: Hash checksum: %i, broadcasting to: %s\n", localChecksum, address.ToString() );
 	
@@ -4612,8 +4614,10 @@ void idSessionLocal::HandleDedicatedServerQueryRequest( lobbyAddress_t& remoteAd
 	
 	bool canJoin = true;
 	
-	const unsigned long localChecksum = NetGetVersionChecksum();
-	const unsigned long remoteChecksum = msg.ReadLong();
+	// DG: use int instead of long for 64bit compatibility
+	const unsigned int localChecksum = NetGetVersionChecksum();
+	const unsigned int remoteChecksum = msg.ReadLong();
+	// DG end
 	
 	if( remoteChecksum != localChecksum )
 	{

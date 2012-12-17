@@ -43,10 +43,13 @@ If you have questions concerning this license or the applicable additional terms
 #endif
 // RB end
 
+// RB begin
+#if defined(USE_DOOMCLASSIC)
 #include "../../doomclassic/doom/doomlib.h"
 #include "../../doomclassic/doom/d_event.h"
 #include "../../doomclassic/doom/d_main.h"
-
+#endif
+// RB end
 
 
 #include "../sys/sys_savegame.h"
@@ -96,7 +99,11 @@ float com_engineHz_latched = 60.0f; // Latched version of cvar, updated between 
 int64 com_engineHz_numerator = 100LL * 1000LL;
 int64 com_engineHz_denominator = 100LL * 60LL;
 
+// RB begin
+#if defined(_WIN32)
 HWND com_hwndMsg = NULL;
+#endif
+// RB end
 
 #ifdef __DOOM_DLL__
 idGame* 		game = NULL;
@@ -120,16 +127,21 @@ idCommonLocal::idCommonLocal
 idCommonLocal::idCommonLocal() :
 	readSnapshotIndex( 0 ),
 	writeSnapshotIndex( 0 ),
+	optimalPCTBuffer( 0.5f ),
 	optimalTimeBuffered( 0.0f ),
 	optimalTimeBufferedWindow( 0.0f ),
-	optimalPCTBuffer( 0.5f ),
 	lastPacifierSessionTime( 0 ),
 	lastPacifierGuiTime( 0 ),
 	lastPacifierDialogState( false ),
-	showShellRequested( false ),
+	showShellRequested( false )
+	// RB begin
+#if defined(USE_DOOMCLASSIC)
+	,
 	currentGame( DOOM3_BFG ),
 	idealCurrentGame( DOOM3_BFG ),
 	doomClassicMaterial( NULL )
+#endif
+	// RB end
 {
 
 	snapCurrent.localTime = -1;
@@ -252,7 +264,14 @@ void idCommonLocal::ParseCommandLine( int argc, const char* const* argv )
 		if( idStr::Icmp( argv[ i ], "+connect_lobby" ) == 0 )
 		{
 			// Handle Steam bootable invites.
+			
+			// RB begin
+#if defined(_WIN32)
 			session->HandleBootableInvite( _atoi64( argv[ i + 1 ] ) );
+#else
+			session->HandleBootableInvite( atol( argv[ i + 1 ] ) );
+#endif
+			// RB end
 		}
 		else if( argv[ i ][ 0 ] == '+' )
 		{
@@ -1300,6 +1319,8 @@ void idCommonLocal::Init( int argc, const char* const* argv, const char* cmdline
 		
 		fileSystem->EndLevelLoad();
 		
+		// RB begin
+#if defined(USE_DOOMCLASSIC)
 		// Initialize support for Doom classic.
 		doomClassicMaterial = declManager->FindMaterial( "_doomClassic" );
 		idImage* image = globalImages->GetImage( "_doomClassic" );
@@ -1313,6 +1334,8 @@ void idCommonLocal::Init( int argc, const char* const* argv, const char* cmdline
 			opts.numLevels = 1;
 			image->AllocImage( opts, TF_LINEAR, TR_REPEAT );
 		}
+#endif
+		// RB end
 		
 		com_fullyInitialized = true;
 		
@@ -1671,6 +1694,9 @@ bool idCommonLocal::ProcessEvent( const sysEvent_t* event )
 		return true;
 	}
 	
+	// RB begin
+#if defined(USE_DOOMCLASSIC)
+	
 	// Let Doom classic run events.
 	if( IsPlayingDoomClassic() )
 	{
@@ -1703,6 +1729,8 @@ bool idCommonLocal::ProcessEvent( const sysEvent_t* event )
 		// Let the classics eat all events.
 		return true;
 	}
+#endif
+	// RB end
 	
 	// menus / etc
 	if( MenuEvent( event ) )
@@ -1736,6 +1764,9 @@ void idCommonLocal::ResetPlayerInput( int playerIndex )
 {
 	userCmdMgr.ResetPlayer( playerIndex );
 }
+
+// RB begin
+#if defined(USE_DOOMCLASSIC)
 
 /*
 ========================
@@ -1818,6 +1849,9 @@ void idCommonLocal::PerformGameSwitch()
 	
 	currentGame = idealCurrentGame;
 }
+
+#endif // #if defined(USE_DOOMCLASSIC)
+// RB end
 
 /*
 ==================

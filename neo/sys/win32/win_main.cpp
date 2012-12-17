@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
 
@@ -36,8 +37,8 @@ If you have questions concerning this license or the applicable additional terms
 #include <io.h>
 #include <conio.h>
 #include <mapi.h>
-#include <ShellAPI.h>
-#include <Shlobj.h>
+#include <shellapi.h>
+#include <shlobj.h>
 
 #ifndef __MRC__
 #include <sys/types.h>
@@ -530,7 +531,15 @@ const char *Sys_DefaultSavePath() {
 		SHGetKnownFolderPath_t SHGetKnownFolderPath = (SHGetKnownFolderPath_t)GetProcAddress( hShell, "SHGetKnownFolderPath" );
 		if ( SHGetKnownFolderPath ) {
 			wchar_t * path;
-			if ( SUCCEEDED( SHGetKnownFolderPath( FOLDERID_SavedGames_IdTech5, CSIDL_FLAG_CREATE | CSIDL_FLAG_PER_USER_INIT, 0, &path ) ) ) {
+
+			// RB FIXME?
+#if defined(__MINGW32__)
+			if ( SUCCEEDED( SHGetKnownFolderPath( FOLDERID_SavedGames_IdTech5, CSIDL_FLAG_CREATE, 0, &path ) ) )
+#else
+			if ( SUCCEEDED( SHGetKnownFolderPath( FOLDERID_SavedGames_IdTech5, CSIDL_FLAG_CREATE | CSIDL_FLAG_PER_USER_INIT, 0, &path ) ) )
+#endif
+			// RB end
+			{
 				if ( wcstombs( savePath, path, MAX_PATH ) > MAX_PATH ) {
 					savePath[0] = 0;
 				}
@@ -540,8 +549,15 @@ const char *Sys_DefaultSavePath() {
 		FreeLibrary( hShell );
 	}
 
-	if ( savePath[0] == 0 ) {
+	if ( savePath[0] == 0 )
+	{
+		// RB: looks like a bug in the shlobj.h
+#if defined(__MINGW32__)
+		SHGetFolderPath( NULL, CSIDL_PERSONAL | CSIDL_FLAG_CREATE, NULL, 1, savePath );
+#else
 		SHGetFolderPath( NULL, CSIDL_PERSONAL | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, savePath );
+#endif
+		// RB end
 		strcat( savePath, "\\My Games" );
 	}
 
@@ -569,7 +585,9 @@ Sys_ListFiles
 int Sys_ListFiles( const char *directory, const char *extension, idStrList &list ) {
 	idStr		search;
 	struct _finddata_t findinfo;
-	int			findhandle;
+	// RB: 64 bit fixes, changed int to intptr_t
+	intptr_t	findhandle;
+	// RB end
 	int			flag;
 
 	if ( !extension) {
@@ -846,7 +864,9 @@ DLL Loading
 Sys_DLL_Load
 =====================
 */
-int Sys_DLL_Load( const char *dllName ) {
+// RB: 64 bit fixes, changed int to intptr_t
+intptr_t Sys_DLL_Load( const char *dllName )
+{
 	HINSTANCE libHandle = LoadLibrary( dllName );
 	return (int)libHandle;
 }
@@ -856,8 +876,10 @@ int Sys_DLL_Load( const char *dllName ) {
 Sys_DLL_GetProcAddress
 =====================
 */
-void *Sys_DLL_GetProcAddress( int dllHandle, const char *procName ) {
-	return GetProcAddress( (HINSTANCE)dllHandle, procName ); 
+void *Sys_DLL_GetProcAddress( intptr_t dllHandle, const char *procName )
+{
+	// RB: added missing cast
+	return ( void* ) GetProcAddress( (HINSTANCE)dllHandle, procName );
 }
 
 /*
@@ -865,11 +887,15 @@ void *Sys_DLL_GetProcAddress( int dllHandle, const char *procName ) {
 Sys_DLL_Unload
 =====================
 */
-void Sys_DLL_Unload( int dllHandle ) {
-	if ( !dllHandle ) {
+void Sys_DLL_Unload( intptr_t dllHandle )
+{
+	if( !dllHandle )
+	{
 		return;
 	}
-	if ( FreeLibrary( (HINSTANCE)dllHandle ) == 0 ) {
+	
+	if( FreeLibrary( (HINSTANCE)dllHandle ) == 0 )
+	{
 		int lastError = GetLastError();
 		LPVOID lpMsgBuf;
 		FormatMessage(
@@ -881,9 +907,11 @@ void Sys_DLL_Unload( int dllHandle ) {
 			0,
 			NULL 
 		);
+
 		Sys_Error( "Sys_DLL_Unload: FreeLibrary failed - %s (%d)", lpMsgBuf, lastError );
 	}
 }
+// RB end
 
 /*
 ========================================================================
@@ -1264,34 +1292,6 @@ void Win_Frame() {
 	}
 }
 
-extern "C" { void _chkstk( int size ); };
-void clrstk();
-
-/*
-====================
-TestChkStk
-====================
-*/
-void TestChkStk() {
-	int		buffer[0x1000];
-
-	buffer[0] = 1;
-}
-
-/*
-====================
-HackChkStk
-====================
-*/
-void HackChkStk() {
-	DWORD	old;
-	VirtualProtect( _chkstk, 6, PAGE_EXECUTE_READWRITE, &old );
-	*(byte *)_chkstk = 0xe9;
-	*(int *)((int)_chkstk+1) = (int)clrstk - (int)_chkstk - 5;
-
-	TestChkStk();
-}
-
 /*
 ====================
 GetExceptionCodeInfo
@@ -1371,6 +1371,9 @@ void EmailCrashReport( LPSTR messageText ) {
 	}
 }
 
+// RB: disabled unused FPU exception debugging
+#if !defined(__MINGW32__) && !defined(_WIN64)
+
 int Sys_FPU_PrintStateFlags( char *ptr, int ctrl, int stat, int tags, int inof, int inse, int opof, int opse );
 
 /*
@@ -1443,6 +1446,8 @@ EXCEPTION_DISPOSITION __cdecl _except_handler( struct _EXCEPTION_RECORD *Excepti
     // Tell the OS to restart the faulting instruction
     return ExceptionContinueExecution;
 }
+#endif
+// RB end
 
 #define TEST_FPU_EXCEPTIONS	/*	FPU_EXCEPTION_INVALID_OPERATION |		*/	\
 							/*	FPU_EXCEPTION_DENORMALIZED_OPERAND |	*/	\
@@ -1547,42 +1552,6 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 	// never gets here
 	return 0;
-}
-
-/*
-====================
-clrstk
-
-I tried to get the run time to call this at every function entry, but
-====================
-*/
-static int	parmBytes;
-__declspec( naked ) void clrstk() {
-	// eax = bytes to add to stack
-	__asm {
-		mov		[parmBytes],eax
-        neg     eax                     ; compute new stack pointer in eax
-        add     eax,esp
-        add     eax,4
-        xchg    eax,esp
-        mov     eax,dword ptr [eax]		; copy the return address
-        push    eax
-        
-        ; clear to zero
-        push	edi
-        push	ecx
-        mov		edi,esp
-        add		edi,12
-        mov		ecx,[parmBytes]
-		shr		ecx,2
-        xor		eax,eax
-		cld
-        rep	stosd
-        pop		ecx
-        pop		edi
-        
-        ret
-	}
 }
 
 /*

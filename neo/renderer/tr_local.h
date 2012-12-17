@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company.
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").
 
@@ -645,8 +646,11 @@ struct glstate_t
 	int					faceCulling;
 	
 	vertexLayoutType_t	vertexLayout;
-	unsigned int		currentVertexBuffer;
-	unsigned int		currentIndexBuffer;
+	
+	// RB: 64 bit fixes, changed unsigned int to uintptr_t
+	uintptr_t			currentVertexBuffer;
+	uintptr_t			currentIndexBuffer;
+	// RB end
 	
 	float				polyOfsScale;
 	float				polyOfsBias;
@@ -1025,6 +1029,22 @@ struct vidMode_t
 	int height;
 	int displayHz;
 	
+	// RB begin
+	vidMode_t()
+	{
+		width = 640;
+		height = 480;
+		displayHz = 60;
+	}
+	
+	vidMode_t( int widht, int height, int displayHz )
+	{
+		this->width = width;
+		this->height = height;
+		this->displayHz = displayHz;
+	}
+	// RB end
+	
 	bool operator==( const vidMode_t& a )
 	{
 		return a.width == width && a.height == height && a.displayHz == displayHz;
@@ -1048,6 +1068,10 @@ struct glimpParms_t
 	int			displayHz;
 	int			multiSamples;
 };
+
+// DG: R_GetModeListForDisplay is called before GLimp_Init(), but SDL needs SDL_Init() first.
+// So add PreInit for platforms that need it, others can just stub it.
+void		GLimp_PreInit();
 
 bool		GLimp_Init( glimpParms_t parms );
 // If the desired mode can't be set satisfactorily, false will be returned.

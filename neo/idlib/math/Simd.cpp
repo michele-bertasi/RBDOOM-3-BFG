@@ -3,6 +3,7 @@
 
 Doom 3 BFG Edition GPL Source Code
 Copyright (C) 1993-2012 id Software LLC, a ZeniMax Media company. 
+Copyright (C) 2012 Robert Beckebans
 
 This file is part of the Doom 3 BFG Edition GPL Source Code ("Doom 3 BFG Edition Source Code").  
 
@@ -123,9 +124,9 @@ void idSIMD::Shutdown() {
 
 idSIMDProcessor *p_simd;
 idSIMDProcessor *p_generic;
-long baseClocks = 0;
+int baseClocks = 0; // DG: use int instead of long for 64bit compatibility
 
-
+#if defined(_MSC_VER) && defined(_M_IX86)
 #define TIME_TYPE int
 
 #pragma warning(disable : 4731)     // frame pointer register 'ebx' modified by inline assembly code
@@ -150,6 +151,29 @@ long saved_ebx = 0;
 	__asm xor eax, eax						\
 	__asm cpuid
 
+#elif MACOS_X // DG: versions for OSX and others from dhewm3
+
+double ticksPerNanosecond;
+
+#define TIME_TYPE uint64_t
+
+#define StartRecordTime( start )			\
+	start = mach_absolute_time();
+
+#define StopRecordTime( end )				\
+	end = mach_absolute_time();
+
+#else // not _MSC_VER and _M_IX86 or MACOS_X
+// FIXME: meaningful values/functions here for Linux?
+#define TIME_TYPE int
+
+#define StartRecordTime( start )			\
+	start = 0;
+
+#define StopRecordTime( end )				\
+	end = 1;
+
+#endif // DG end
 
 #define GetBest( start, end, best )			\
 	if ( !best || end - start < best ) {	\
@@ -162,7 +186,7 @@ long saved_ebx = 0;
 PrintClocks
 ============
 */
-void PrintClocks( char *string, int dataCount, int clocks, int otherClocks = 0 ) {
+void PrintClocks( const char *string, int dataCount, int clocks, int otherClocks = 0 ) {
 	int i;
 
 	idLib::common->Printf( string );
@@ -1215,7 +1239,11 @@ idSIMD::Test_f
 */
 void idSIMD::Test_f( const idCmdArgs &args ) {
 
+	// RB begin
+#if defined(_WIN32)
 	SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL );
+#endif
+	// RB end
 
 	p_simd = processor;
 	p_generic = generic;
@@ -1268,5 +1296,9 @@ void idSIMD::Test_f( const idCmdArgs &args ) {
 	p_simd = NULL;
 	p_generic = NULL;
 
+	// RB begin
+#if defined(_WIN32)
 	SetThreadPriority( GetCurrentThread(), THREAD_PRIORITY_NORMAL );
+#endif
+	// RB end
 }

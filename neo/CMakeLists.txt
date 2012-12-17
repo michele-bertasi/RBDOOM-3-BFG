@@ -9,6 +9,9 @@ option(USE_MFC_TOOLS
 option(MONOLITH
 		"Embed game logic into main executable" ON)
 		
+option(SDL2
+		"Use SDL2 instead of SDL1.2" OFF)
+
 option(USE_LEGACY_SOUND_SYSTEM
 		"Use the original Doom 3 sound system" OFF)
 		
@@ -18,9 +21,36 @@ option(USE_LEGACY_SOUND_SYSTEM
 
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
 	add_definitions(-pipe)
-	add_definitions(-Wall)
+	#add_definitions(-Wall)
+	add_definitions(-mmmx -msse -msse2)
+	if(WIN32)
+		# require msvcr70.dll or newer for _aligned_malloc etc
+		# I think it is from Visual C++ .NET 2002, so it should be available on any remotely modern system.
+		add_definitions(-D__MSVCRT_VERSION__=0x0700)
+		
+		find_package(DirectX REQUIRED)
+		include_directories(libs/mingw-hacks)
+		include_directories(${DirectX_INCLUDE_DIR})
+		add_definitions(-DUSE_XINPUT)
+	endif()	
 	
-	#set(CMAKE_C_FLAGS_DEBUG "-D_DEBUG")
+	#if(NOT ANDROID)
+		add_definitions(-DUSE_EXCEPTIONS)
+	#endif()
+	
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG -O0 -ggdb  -Wno-pragmas -fno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
+	#set(CMAKE_C_FLAGS_DEBUGALL "${CMAKE_C_FLAGS_DEBUGALL} -g -ggdb -D_DEBUG -Wno-pragmas -fno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
+	#set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_PROFILE} -g -ggdb -D_DEBUG -O1 -fno-omit-frame-pointer -Wunknown-pragmas -fno-strict-aliasing  -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -Wno-pragmas -fno-strict-aliasing  -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -g -O3 -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -Wno-pragmas -fno-strict-aliasing  -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
+	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -Wno-pragmas -fno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
+	
+	set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
+	#set(CMAKE_CXX_FLAGS_DEBUGALL ${CMAKE_C_FLAGS_DEBUGALL})
+	#set(CMAKE_CXX_FLAGS_PROFILE ${CMAKE_C_FLAGS_PROFILE})
+	set(CMAKE_CXX_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO})
+	set(CMAKE_CXX_FLAGS_MINSIZEREL ${CMAKE_C_FLAGS_MINSIZEREL})
 
 elseif(MSVC)
 	
@@ -57,10 +87,13 @@ elseif(MSVC)
 					-D_CRT_SECURE_NO_DEPRECATE
 					-D_CRT_NONSTDC_NO_DEPRECATE
 					-D_CRT_SECURE_NO_WARNINGS
-					-D_USE_32BIT_TIME_T
 					-D_MBCS
 					#-DUSE_OPENAL
 					-DUSE_EXCEPTIONS)
+					
+	if(NOT CMAKE_CL_64)
+		add_definitions(-D_USE_32BIT_TIME_T)
+	endif()
 					
 	if(USE_MFC_TOOLS)
 		add_definitions(-D_AFXDLL)
@@ -354,6 +387,12 @@ set(XAUDIO2_SOURCES
 	sound/XAudio2/XA2_SoundHardware.cpp
 	sound/XAudio2/XA2_SoundSample.cpp
 	sound/XAudio2/XA2_SoundVoice.cpp)
+
+set(STUBAUDIO_INCLUDES
+	sound/stub/SoundStub.h)
+
+set(STUBAUDIO_SOURCES
+	sound/stub/SoundSample.cpp)
 	
 set(OGGVORBIS_INCLUDES
 	libs/oggvorbis/ogg/ogg.h
@@ -620,7 +659,28 @@ file(GLOB TIMIDITY_INCLUDES libs/timidity/*.h)
 file(GLOB TIMIDITY_SOURCES libs/timidity/*.cpp)
 
 file(GLOB_RECURSE WIN32_INCLUDES sys/win32/*.h)
-file(GLOB_RECURSE WIN32_SOURCES sys/win32/*.cpp)
+#file(GLOB_RECURSE WIN32_SOURCES sys/win32/*.cpp)
+
+set(WIN32_SOURCES
+	sys/win32/win_achievements.cpp
+	sys/win32/win_glimp.cpp
+	sys/win32/win_input.cpp
+	sys/win32/win_localuser.cpp
+	sys/win32/win_main.cpp
+	sys/win32/win_net.cpp
+	sys/win32/win_qgl.cpp
+	sys/win32/win_savegame.cpp
+	sys/win32/win_session_local.cpp
+	sys/win32/win_shared.cpp
+	sys/win32/win_signin.cpp
+	sys/win32/win_snd.cpp
+	sys/win32/win_syscon.cpp
+	sys/win32/win_taskkeyhook.cpp
+	sys/win32/win_wndproc.cpp)
+	
+if(MSVC)
+	list(APPEND WIN32_SOURCES sys/win32/win_cpu.cpp)
+endif()
 
 set(WIN32_RESOURCES
 	# sys/win32/rc/res/BEVEL.BMP
@@ -694,6 +754,14 @@ set(WIN32_RESOURCES
 #	list(APPEND WIN32_RESOURCES sys/win32/rc/doom_nomfc.rc)
 #endif()
 
+
+file(GLOB POSIX_INCLUDES sys/posix/*.h)
+file(GLOB POSIX_SOURCES sys/posix/*.cpp)
+
+file(GLOB SDL_INCLUDES sys/sdl/*.h)
+file(GLOB SDL_SOURCES sys/sdl/*.cpp)
+
+
 source_group("aas" FILES ${AAS_INCLUDES})
 source_group("aas" FILES ${AAS_SOURCES})
 
@@ -736,6 +804,9 @@ endif()
 
 source_group("sound\\XAudio2" FILES ${XAUDIO2_INCLUDES})
 source_group("sound\\XAudio2" FILES ${XAUDIO2_SOURCES})
+
+source_group("sound\\stub" FILES ${STUBAUDIO_INCLUDES})
+source_group("sound\\stub" FILES ${STUBAUDIO_SOURCES})
 
 source_group("libs\\oggvorbis" FILES ${OGGVORBIS_INCLUDES})
 source_group("libs\\oggvorbis" FILES ${OGGVORBIS_SOURCES})
@@ -783,6 +854,13 @@ source_group("game-d3xp\\script" FILES ${GAMED3XP_SCRIPT_SOURCES})
 source_group("sys\\win32" FILES ${WIN32_INCLUDES})
 source_group("sys\\win32" FILES ${WIN32_SOURCES})
 source_group("sys\\win32\\Resources" FILES ${WIN32_RESOURCES})
+
+source_group("sys\\posix" FILES ${POSIX_INCLUDES})
+source_group("sys\\posix" FILES ${POSIX_SOURCES})
+
+source_group("sys\\sdl" FILES ${SDL_INCLUDES})
+source_group("sys\\sdl" FILES ${SDL_SOURCES})
+
 
 source_group("tools\\compilers" FILES ${COMPILER_INCLUDES})
 
@@ -855,9 +933,6 @@ set(RBDOOM3_SOURCES
 			${UI_INCLUDES} ${UI_SOURCES}
 			${SWF_INCLUDES} ${SWF_SOURCES}
 			
-			${DOOMCLASSIC_INCLUDES} ${DOOMCLASSIC_SOURCES}
-			${TIMIDITY_INCLUDES} ${TIMIDITY_SOURCES}
-			
 			#${COMPILER_INCLUDES}
 			#${COMPILER_AAS_INCLUDES} ${COMPILER_AAS_SOURCES}
 			#${COMPILER_DMAP_INCLUDES} ${COMPILER_DMAP_SOURCES}
@@ -897,6 +972,8 @@ include_directories(
 #			${CMAKE_CURRENT_SOURCE_DIR}/libs/openal/lib)
 
 if(MSVC)
+
+	add_definitions(-DUSE_DOOMCLASSIC)
 
 	if(USE_LEGACY_SOUND_SYSTEM)
 		add_definitions(-DUSE_LEGACY_SOUND_SYSTEM)
@@ -953,6 +1030,9 @@ if(MSVC)
 	endif()
 	
 	list(APPEND RBDOOM3_SOURCES
+		${DOOMCLASSIC_INCLUDES} ${DOOMCLASSIC_SOURCES}
+		${TIMIDITY_INCLUDES} ${TIMIDITY_SOURCES}
+		
 		${SYS_INCLUDES} ${SYS_SOURCES}
 		${WIN32_INCLUDES} ${WIN32_SOURCES} ${WIN32_RESOURCES})
 		
@@ -981,4 +1061,80 @@ if(MSVC)
 		winmm
 		wsock32.lib
 		)
+else()
+
+	list(APPEND RBDOOM3_SOURCES
+		${SYS_INCLUDES} ${SYS_SOURCES}
+		${STUBAUDIO_INCLUDES} ${STUBAUDIO_SOURCES})
+	
+	if(WIN32)
+		add_definitions(-DUSE_DOOMCLASSIC)
+	
+		list(APPEND RBDOOM3_SOURCES
+			${DOOMCLASSIC_INCLUDES} ${DOOMCLASSIC_SOURCES}
+			${TIMIDITY_INCLUDES} ${TIMIDITY_SOURCES}
+			${WIN32_INCLUDES} ${WIN32_SOURCES} ${WIN32_RESOURCES})  
+	
+		#list(REMOVE_ITEM WIN32_SOURCES sys/win32/win_cpu.cpp)
+		list(APPEND WIN32_SOURCES sys/sdl/sdl_cpu.cpp)
+	endif()
+	
+	if(UNIX)
+	
+		if(SDL2)
+			find_package(SDL2 REQUIRED)
+			include_directories(${SDL2_INCLUDE_DIR})
+			set(SDLx_LIBRARY ${SDL2_LIBRARY})
+		else()
+			find_package(SDL REQUIRED)
+			include_directories(${SDL_INCLUDE_DIR})
+			set(SDLx_LIBRARY ${SDL_LIBRARY})
+		endif()
+	
+		list(APPEND RBDOOM3_SOURCES
+			${POSIX_INCLUDES} ${POSIX_SOURCES}
+			${SDL_INCLUDES} ${SDL_SOURCES}
+			sys/linux/linux_main.cpp)
+	endif()
+
+	list(REMOVE_DUPLICATES RBDOOM3_SOURCES)
+	
+	add_executable(RBDoom3 WIN32 ${RBDOOM3_SOURCES})
+
+	add_dependencies(RBDoom3 idlib)
+	
+	if(MINGW)
+		include_directories(libs/sdl2/include)
+		
+		link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs/sdl2/libmingw32)
+	endif()
+	
+	if(WIN32)
+	
+		target_link_libraries(RBDoom3
+			idlib
+			${DirectX_LIBRARIES}
+			#libcurl 
+			#openal32 
+			opengl32
+			glu32
+			dbghelp
+			#eaxguid
+			iphlpapi
+			winmm
+			wsock32.lib
+			SDL2
+			)
+	  
+	endif()
+	
+	if(UNIX)	
+		target_link_libraries(RBDoom3
+			idlib
+			GL
+			pthread
+			${SDLx_LIBRARY}
+			)
+	endif()
+	
 endif()

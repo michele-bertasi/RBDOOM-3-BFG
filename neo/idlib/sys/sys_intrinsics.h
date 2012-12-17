@@ -28,6 +28,8 @@ If you have questions concerning this license or the applicable additional terms
 #ifndef __SYS_INTRIINSICS_H__
 #define __SYS_INTRIINSICS_H__
 
+#include <emmintrin.h>
+
 /*
 ================================================================================================
 
@@ -141,20 +143,22 @@ ID_INLINE_EXTERN int CACHE_LINE_CLEAR_OVERFLOW_COUNT( int size )
 }
 
 // if the pointer is not on a cache line boundary this assumes the cache line the pointer starts in was already cleared
+// RB: changed UINT_PTR to uintptr_t
 #define CACHE_LINE_CLEAR_BLOCK( ptr, size )																		\
-	byte * startPtr = (byte *)( ( ( (UINT_PTR) ( ptr ) ) + CACHE_LINE_SIZE - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );	\
-	byte * endPtr = (byte *)( ( (UINT_PTR) ( ptr ) + ( size ) - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );				\
+	byte * startPtr = (byte *)( ( ( (uintptr_t) ( ptr ) ) + CACHE_LINE_SIZE - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );	\
+	byte * endPtr = (byte *)( ( (uintptr_t) ( ptr ) + ( size ) - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );				\
 	for ( ; startPtr <= endPtr; startPtr += CACHE_LINE_SIZE ) {													\
 		ZeroCacheLine( startPtr, 0 );																			\
 	}
 
 #define CACHE_LINE_CLEAR_BLOCK_AND_FLUSH( ptr, size )															\
-	byte * startPtr = (byte *)( ( ( (UINT_PTR) ( ptr ) ) + CACHE_LINE_SIZE - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );	\
-	byte * endPtr = (byte *)( ( (UINT_PTR) ( ptr ) + ( size ) - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );				\
+	byte * startPtr = (byte *)( ( ( (uintptr_t) ( ptr ) ) + CACHE_LINE_SIZE - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );	\
+	byte * endPtr = (byte *)( ( (uintptr_t) ( ptr ) + ( size ) - 1 ) & ~( CACHE_LINE_SIZE - 1 ) );				\
 	for ( ; startPtr <= endPtr; startPtr += CACHE_LINE_SIZE ) {													\
 		ZeroCacheLine( startPtr, 0 );																			\
 		FlushCacheLine( startPtr, 0 );																			\
 	}
+// RB end
 
 /*
 ================================================================================================
@@ -174,8 +178,24 @@ ID_INLINE_EXTERN int CACHE_LINE_CLEAR_OVERFLOW_COUNT( int size )
 #define R_SHUFFLE_D( x, y, z, w )	(( (w) & 3 ) << 6 | ( (z) & 3 ) << 4 | ( (y) & 3 ) << 2 | ( (x) & 3 ))
 #endif
 
+// DG: _CRT_ALIGN seems to be MSVC specific, so provide implementation..
+#ifndef _CRT_ALIGN
+#if defined(__GNUC__) // also applies for clang
+#define _CRT_ALIGN(x) __attribute__ ((__aligned__ (x)))
+#elif defined(_MSC_VER) // also for MSVC, just to be sure
+#define _CRT_ALIGN(x) __declspec(align(x))
+#endif
+#endif
+// DG: make sure __declspec(intrin_type) is only used on MSVC (it's not available on GCC etc
+#ifdef _MSC_VER
+#define DECLSPEC_INTRINTYPE __declspec( intrin_type )
+#else
+#define DECLSPEC_INTRINTYPE
+#endif
+// DG end
+
 // make the intrinsics "type unsafe"
-typedef union __declspec( intrin_type ) _CRT_ALIGN( 16 ) __m128c
+typedef union DECLSPEC_INTRINTYPE _CRT_ALIGN( 16 ) __m128c
 {
 	__m128c() {}
 	__m128c( __m128 f )

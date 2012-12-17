@@ -33,7 +33,7 @@ If you have questions concerning this license or the applicable additional terms
 #define __QGL_H__
 
 
-#include <gl/gl.h>
+#include <GL/gl.h>
 
 
 #ifndef APIENTRY
@@ -428,7 +428,9 @@ extern  void ( APIENTRY* qglScaled )( GLdouble x, GLdouble y, GLdouble z );
 extern  void ( APIENTRY* qglScalef )( GLfloat x, GLfloat y, GLfloat z );
 extern  void ( APIENTRY* qglScissor )( GLint x, GLint y, GLsizei width, GLsizei height );
 extern  void ( APIENTRY* qglSelectBuffer )( GLsizei size, GLuint* buffer );
-extern  void ( APIENTRY* qglShadeModel )( GLenum mode );
+// DG: deprecated in opengl 3.2 and not needed because we don't do fixed function pipeline
+// extern  void ( APIENTRY* qglShadeModel )( GLenum mode );
+// DG end
 extern  void ( APIENTRY* qglStencilFunc )( GLenum func, GLint ref, GLuint mask );
 extern  void ( APIENTRY* qglStencilMask )( GLuint mask );
 extern  void ( APIENTRY* qglStencilOp )( GLenum fail, GLenum zfail, GLenum zpass );
@@ -513,6 +515,8 @@ extern  void ( APIENTRY* qglVertexPointer )( GLint size, GLenum type, GLsizei st
 extern  void ( APIENTRY* qglViewport )( GLint x, GLint y, GLsizei width, GLsizei height );
 
 
+// RB begin
+#if defined(_WIN32)
 extern  int ( WINAPI* qwglChoosePixelFormat )( HDC, CONST PIXELFORMATDESCRIPTOR* );
 extern  int ( WINAPI* qwglDescribePixelFormat )( HDC, int, UINT, LPPIXELFORMATDESCRIPTOR );
 extern  int ( WINAPI* qwglGetPixelFormat )( HDC );
@@ -541,7 +545,8 @@ extern int ( WINAPI* qwglGetLayerPaletteEntries )( HDC, int, int, int,
 		COLORREF* );
 extern BOOL ( WINAPI* qwglRealizeLayerPalette )( HDC, int, BOOL );
 extern BOOL ( WINAPI* qwglSwapLayerBuffers )( HDC, UINT );
-
+#endif
+// RB end
 
 
 #endif	// hardlinlk vs dlopen

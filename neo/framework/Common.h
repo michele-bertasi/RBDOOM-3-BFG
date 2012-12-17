@@ -102,7 +102,7 @@ public:
 
 #define SCOPED_PROFILE_EVENT( x ) idScopedProfileEvent scopedProfileEvent_##__LINE__( x )
 
-ID_INLINE bool BeginTraceRecording( char* szName )
+ID_INLINE bool BeginTraceRecording( const char* szName )
 {
 	return false;
 }
@@ -178,12 +178,16 @@ struct mpMap_t
 
 static const int	MAX_LOGGED_STATS = 60 * 120;		// log every half second
 
+// RB begin
+#if defined(USE_DOOMCLASSIC)
 enum currentGame_t
 {
 	DOOM_CLASSIC,
 	DOOM2_CLASSIC,
 	DOOM3_BFG
 };
+#endif
+// RB end
 
 class idCommon
 {
@@ -316,8 +320,6 @@ public:
 	
 	virtual int					GetGameFrame() = 0;
 	
-	virtual void				LaunchExternalTitle( int titleIndex, int device, const lobbyConnectInfo_t* const connectInfo ) = 0;
-	
 	virtual void				InitializeMPMapsModes() = 0;
 	virtual const idStrList& 			GetModeList() const = 0;
 	virtual const idStrList& 			GetModeDisplayList() const = 0;
@@ -329,8 +331,12 @@ public:
 	
 	virtual void				QueueShowShell() = 0;		// Will activate the shell on the next frame.
 	
+	// RB begin
+#if defined(USE_DOOMCLASSIC)
 	virtual currentGame_t		GetCurrentGame() const = 0;
 	virtual void				SwitchToGame( currentGame_t newGame ) = 0;
+#endif
+	// RB end
 };
 
 extern idCommon* 		common;
