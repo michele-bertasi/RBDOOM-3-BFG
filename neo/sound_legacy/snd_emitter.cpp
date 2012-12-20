@@ -72,96 +72,6 @@ float idSoundFade::FadeDbAt44kHz( int current44kHz )
 	return fadeDb;
 }
 
-//========================================================================
-
-
-/*
-=======================
-GeneratePermutedList
-
-Fills in elements[0] .. elements[numElements-1] with a permutation of
-0 .. numElements-1 based on the permute parameter
-
-numElements == 3
-maxPermute = 6
-permute 0 = 012
-permute 1 = 021
-permute 2 = 102
-permute 3 = 120
-permute 4 = 201
-permute 5 = 210
-=======================
-*/
-void PermuteList_r( int* list, int listLength, int permute, int maxPermute )
-{
-	if( listLength < 2 )
-	{
-		return;
-	}
-	permute %= maxPermute;
-	int	swap = permute * listLength / maxPermute;
-	int	old = list[swap];
-	list[swap] = list[0];
-	list[0] = old;
-	
-	maxPermute /= listLength;
-	PermuteList_r( list + 1, listLength - 1, permute, maxPermute );
-}
-
-int	Factorial( int val )
-{
-	int	fact = val;
-	while( val > 1 )
-	{
-		val--;
-		fact *= val;
-	}
-	return fact;
-}
-
-void GeneratePermutedList( int* list, int listLength, int permute )
-{
-	for( int i = 0 ; i < listLength ; i++ )
-	{
-		list[i] = i;
-	}
-	
-	// we can't calculate > 12 factorial, so we can't easily build a permuted list
-	if( listLength > 12 )
-	{
-		return;
-	}
-	
-	// calculate listLength factorial
-	int		maxPermute = Factorial( listLength );
-	
-	// recursively permute
-	PermuteList_r( list, listLength, permute, maxPermute );
-}
-
-void TestPermutations()
-{
-	int	list[SOUND_MAX_LIST_WAVS];
-	
-	for( int len = 1 ; len < 5 ; len++ )
-	{
-		common->Printf( "list length: %i\n", len );
-		
-		int	max = Factorial( len );
-		for( int j = 0 ; j < max * 2 ; j++ )
-		{
-			GeneratePermutedList( list, len, j );
-			common->Printf( "%4i : ", j );
-			for( int k = 0 ; k < len ; k++ )
-			{
-				common->Printf( "%i", list[k] );
-			}
-			common->Printf( "\n" );
-		}
-	}
-}
-
-//=====================================================================================
 
 /*
 ===================
@@ -522,6 +432,7 @@ void idSoundEmitterLocal::CheckForCompletion( int current44kHzTime )
 			{
 				continue;
 			}
+			
 			const idSoundShader* shader = chan->soundShader;
 			if( !shader )
 			{
@@ -832,7 +743,7 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	//
 	// pick which sound to play from the shader
 	//
-	if( !shader->numEntries )
+	if( shader->entries.Num() == 0 )
 	{
 		if( idSoundSystemLocal::s_showStartSound.GetInteger() )
 		{
@@ -843,8 +754,8 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	int choice;
 	
 	// pick a sound from the list based on the passed diversity
-	choice = ( int )( diversity * shader->numEntries );
-	if( choice < 0 || choice >= shader->numEntries )
+	choice = ( int )( diversity * shader->entries.Num() );
+	if( choice < 0 || choice >= shader->entries.Num() )
 	{
 		choice = 0;
 	}
@@ -853,20 +764,24 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	if( chanParms.soundShaderFlags & SSF_NO_DUPS )
 	{
 		idSoundSample*	sample;
+		
+		/*
 		if( shader->leadins[ choice ] )
 		{
 			sample = shader->leadins[ choice ];
 		}
 		else
+		*/
 		{
 			sample = shader->entries[ choice ];
 		}
+		
 		for( i = 0; i < SOUND_MAX_CHANNELS; i++ )
 		{
 			idSoundChannel*	chan = &channels[i];
 			if( chan->leadinSample == sample )
 			{
-				choice = ( choice + 1 ) % shader->numEntries;
+				choice = ( choice + 1 ) % shader->entries.Num();
 				break;
 			}
 		}
@@ -904,7 +819,7 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 		}
 	}
 	
-	Sys_EnterCriticalSection();
+	//Sys_EnterCriticalSection();
 	
 	// kill any sound that is currently playing on this channel
 	if( channel != SCHANNEL_ANY )
@@ -946,7 +861,7 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	if( i == SOUND_MAX_CHANNELS )
 	{
 		// we couldn't find a channel for it
-		Sys_LeaveCriticalSection();
+		//Sys_LeaveCriticalSection();
 		if( idSoundSystemLocal::s_showStartSound.GetInteger() )
 		{
 			common->Printf( "no channels available\n" );
@@ -956,11 +871,13 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	
 	chan = &channels[i];
 	
+	/*
 	if( shader->leadins[ choice ] )
 	{
 		chan->leadinSample = shader->leadins[ choice ];
 	}
 	else
+	*/
 	{
 		chan->leadinSample = shader->entries[ choice ];
 	}
@@ -970,8 +887,12 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	{
 		int		start = Sys_Milliseconds();
 		chan->leadinSample->Load();
+		
 		int		end = Sys_Milliseconds();
-		session->TimeHitch( end - start );
+		
+		// RB: FIXME?
+		//session->TimeHitch( end - start );
+		
 		// recalculate start44kHz, because loading may have taken a fair amount of time
 		if( !soundWorld->fpa[0] )
 		{
@@ -1032,6 +953,7 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	{
 		chan->trigger44kHzTime -= diversity * length;
 		chan->trigger44kHzTime &= ~7;		// so we don't have to worry about the 22kHz and 11kHz expansions
+		
 		// starting in fractional samples
 		chan->triggerGame44kHzTime -= diversity * length;
 		chan->triggerGame44kHzTime &= ~7;
@@ -1039,7 +961,7 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	
 	length *= 1000 / ( float )PRIMARYFREQ;
 	
-	Sys_LeaveCriticalSection();
+	//Sys_LeaveCriticalSection();
 	
 	return length;
 }
@@ -1119,7 +1041,7 @@ void idSoundEmitterLocal::StopSound( const s_channelType channel )
 		soundWorld->writeDemo->WriteInt( channel );
 	}
 	
-	Sys_EnterCriticalSection();
+	//Sys_EnterCriticalSection();
 	
 	for( i = 0; i < SOUND_MAX_CHANNELS; i++ )
 	{
@@ -1152,7 +1074,7 @@ void idSoundEmitterLocal::StopSound( const s_channelType channel )
 		chan->soundShader = NULL;
 	}
 	
-	Sys_LeaveCriticalSection();
+	//Sys_LeaveCriticalSection();
 }
 
 /*
@@ -1229,9 +1151,38 @@ void idSoundEmitterLocal::FadeSound( const s_channelType channel, float to, floa
 idSoundEmitterLocal::CurrentlyPlaying
 ===================
 */
-bool idSoundEmitterLocal::CurrentlyPlaying() const
+bool idSoundEmitterLocal::CurrentlyPlaying( const s_channelType channel ) const
 {
-	return playing;
+	if( channel == SCHANNEL_ANY )
+	{
+		return playing;
+	}
+	
+	if( playing )
+	{
+		for( int i = 0; i < SOUND_MAX_CHANNELS; i++ )
+		{
+			const idSoundChannel* chan = &channels[i];
+			
+			if( chan->triggerState == NULL )
+			{
+				continue;
+			}
+			
+			const idSoundShader* shader = chan->soundShader;
+			if( shader == NULL )
+			{
+				continue;
+			}
+			
+			if( chan->triggerChannel == channel )
+			{
+				return true;
+			}
+		}
+	}
+	
+	return false;
 }
 
 /*

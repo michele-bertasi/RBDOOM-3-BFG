@@ -794,7 +794,20 @@ void idCommonLocal::Frame()
 			soundWorld->UnPause();
 			soundSystem->SetPlayingSoundWorld( soundWorld );
 		}
+		
+		// RB begin
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+		
+#if defined(_WIN32)
+		soundSystem->AsyncUpdate( Sys_Milliseconds() );
+#else
+		soundSystem->AsyncUpdateWrite( Sys_Milliseconds() );
+#endif
+		
+#else
 		soundSystem->Render();
+#endif
+		// RB end
 		
 		// process the game return for map changes, etc
 		ProcessGameReturn( ret );

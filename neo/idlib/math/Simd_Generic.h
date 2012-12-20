@@ -57,6 +57,15 @@ public:
 	virtual void VPCALL ConvertJointMatsToJointQuats( idJointQuat* jointQuats, const idJointMat* jointMats, const int numJoints );
 	virtual void VPCALL TransformJoints( idJointMat* jointMats, const int* parents, const int firstJoint, const int lastJoint );
 	virtual void VPCALL UntransformJoints( idJointMat* jointMats, const int* parents, const int firstJoint, const int lastJoint );
+	// RB begin
+	virtual void VPCALL UpSamplePCMTo44kHz( float* dest, const short* pcm, const int numSamples, const int kHz, const int numChannels );
+	virtual void VPCALL UpSampleOGGTo44kHz( float* dest, const float* const* ogg, const int numSamples, const int kHz, const int numChannels );
+	virtual void VPCALL MixSoundTwoSpeakerMono( float* mixBuffer, const float* samples, const int numSamples, const float lastV[2], const float currentV[2] );
+	virtual void VPCALL MixSoundTwoSpeakerStereo( float* mixBuffer, const float* samples, const int numSamples, const float lastV[2], const float currentV[2] );
+	virtual void VPCALL MixSoundSixSpeakerMono( float* mixBuffer, const float* samples, const int numSamples, const float lastV[6], const float currentV[6] );
+	virtual void VPCALL MixSoundSixSpeakerStereo( float* mixBuffer, const float* samples, const int numSamples, const float lastV[6], const float currentV[6] );
+	virtual void VPCALL MixedSoundToSamples( short* samples, const float* mixBuffer, const int numSamples );
+	// RB end
 };
 
 #endif /* !__MATH_SIMD_GENERIC_H__ */

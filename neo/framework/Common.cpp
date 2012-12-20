@@ -1272,7 +1272,14 @@ void idCommonLocal::Init( int argc, const char* const* argv, const char* cmdline
 		soundWorld = soundSystem->AllocSoundWorld( renderWorld );
 		
 		menuSoundWorld = soundSystem->AllocSoundWorld( NULL );
+		
+		// RB begin
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+		menuSoundWorld->PlaceListener( vec3_origin, mat3_identity, 0, Sys_Milliseconds(), "Common" );
+#else
 		menuSoundWorld->PlaceListener( vec3_origin, mat3_identity, 0 );
+#endif
+		// RB end
 		
 		// init the session
 		session->Initialize();
@@ -1534,7 +1541,15 @@ void idCommonLocal::CreateMainMenu()
 		
 		// load
 		renderSystem->EndLevelLoad();
+		
+		// RB begin
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+		soundSystem->EndLevelLoad( NULL );
+#else
 		soundSystem->EndLevelLoad();
+#endif
+		// RB end
+		
 		declManager->EndLevelLoad();
 		uiManager->EndLevelLoad( "" );
 	}

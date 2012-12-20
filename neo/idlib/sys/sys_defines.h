@@ -58,6 +58,7 @@ If you have questions concerning this license or the applicable additional terms
 // DG end
 #endif
 
+#define PACKED
 
 #define FORMAT_PRINTF( x )
 
@@ -66,6 +67,7 @@ If you have questions concerning this license or the applicable additional terms
 #define NEWLINE							"\r\n"
 
 #define ID_INLINE						inline
+
 #ifdef _MSC_VER
 #define ID_FORCE_INLINE					__forceinline
 #else
@@ -88,6 +90,8 @@ If you have questions concerning this license or the applicable additional terms
 // DG end
 #endif
 #endif
+
+#define ID_STATIC_TEMPLATE				static
 
 // DG: #pragma hdrstop is only available on MSVC, so make sure it doesn't cause compiler warnings on other compilers..
 #ifdef _MSC_VER
@@ -119,6 +123,9 @@ If you have questions concerning this license or the applicable additional terms
 #define ALIGN16( x )					x __attribute__ ((aligned (16)))
 #define ALIGNTYPE16						__attribute__ ((aligned (16)))
 #define ALIGNTYPE128					__attribute__ ((aligned (128)))
+
+#define PACKED							__attribute__((packed))
+
 
 #define FORMAT_PRINTF( x )
 

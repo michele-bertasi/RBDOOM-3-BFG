@@ -234,3 +234,284 @@ void VPCALL idSIMD_Generic::UntransformJoints( idJointMat* jointMats, const int*
 		jointMats[i] /= jointMats[parents[i]];
 	}
 }
+
+// RB begin
+/*
+============
+idSIMD_Generic::UpSamplePCMTo44kHz
+
+  Duplicate samples for 44kHz output.
+============
+*/
+void idSIMD_Generic::UpSamplePCMTo44kHz( float* dest, const short* src, const int numSamples, const int kHz, const int numChannels )
+{
+	if( kHz == 11025 )
+	{
+		if( numChannels == 1 )
+		{
+			for( int i = 0; i < numSamples; i++ )
+			{
+				dest[i * 4 + 0] = dest[i * 4 + 1] = dest[i * 4 + 2] = dest[i * 4 + 3] = ( float ) src[i + 0];
+			}
+		}
+		else
+		{
+			for( int i = 0; i < numSamples; i += 2 )
+			{
+				dest[i * 4 + 0] = dest[i * 4 + 2] = dest[i * 4 + 4] = dest[i * 4 + 6] = ( float ) src[i + 0];
+				dest[i * 4 + 1] = dest[i * 4 + 3] = dest[i * 4 + 5] = dest[i * 4 + 7] = ( float ) src[i + 1];
+			}
+		}
+	}
+	else if( kHz == 22050 )
+	{
+		if( numChannels == 1 )
+		{
+			for( int i = 0; i < numSamples; i++ )
+			{
+				dest[i * 2 + 0] = dest[i * 2 + 1] = ( float ) src[i + 0];
+			}
+		}
+		else
+		{
+			for( int i = 0; i < numSamples; i += 2 )
+			{
+				dest[i * 2 + 0] = dest[i * 2 + 2] = ( float ) src[i + 0];
+				dest[i * 2 + 1] = dest[i * 2 + 3] = ( float ) src[i + 1];
+			}
+		}
+	}
+	else if( kHz == 44100 )
+	{
+		for( int i = 0; i < numSamples; i++ )
+		{
+			dest[i] = ( float ) src[i];
+		}
+	}
+	else
+	{
+		assert( 0 );
+	}
+}
+
+/*
+============
+idSIMD_Generic::UpSampleOGGTo44kHz
+
+  Duplicate samples for 44kHz output.
+============
+*/
+void idSIMD_Generic::UpSampleOGGTo44kHz( float* dest, const float* const* ogg, const int numSamples, const int kHz, const int numChannels )
+{
+	if( kHz == 11025 )
+	{
+		if( numChannels == 1 )
+		{
+			for( int i = 0; i < numSamples; i++ )
+			{
+				dest[i * 4 + 0] = dest[i * 4 + 1] = dest[i * 4 + 2] = dest[i * 4 + 3] = ogg[0][i] * 32768.0f;
+			}
+		}
+		else
+		{
+			for( int i = 0; i < numSamples >> 1; i++ )
+			{
+				dest[i * 8 + 0] = dest[i * 8 + 2] = dest[i * 8 + 4] = dest[i * 8 + 6] = ogg[0][i] * 32768.0f;
+				dest[i * 8 + 1] = dest[i * 8 + 3] = dest[i * 8 + 5] = dest[i * 8 + 7] = ogg[1][i] * 32768.0f;
+			}
+		}
+	}
+	else if( kHz == 22050 )
+	{
+		if( numChannels == 1 )
+		{
+			for( int i = 0; i < numSamples; i++ )
+			{
+				dest[i * 2 + 0] = dest[i * 2 + 1] = ogg[0][i] * 32768.0f;
+			}
+		}
+		else
+		{
+			for( int i = 0; i < numSamples >> 1; i++ )
+			{
+				dest[i * 4 + 0] = dest[i * 4 + 2] = ogg[0][i] * 32768.0f;
+				dest[i * 4 + 1] = dest[i * 4 + 3] = ogg[1][i] * 32768.0f;
+			}
+		}
+	}
+	else if( kHz == 44100 )
+	{
+		if( numChannels == 1 )
+		{
+			for( int i = 0; i < numSamples; i++ )
+			{
+				dest[i * 1 + 0] = ogg[0][i] * 32768.0f;
+			}
+		}
+		else
+		{
+			for( int i = 0; i < numSamples >> 1; i++ )
+			{
+				dest[i * 2 + 0] = ogg[0][i] * 32768.0f;
+				dest[i * 2 + 1] = ogg[1][i] * 32768.0f;
+			}
+		}
+	}
+	else
+	{
+		assert( 0 );
+	}
+}
+
+/*
+============
+idSIMD_Generic::MixSoundTwoSpeakerMono
+============
+*/
+void VPCALL idSIMD_Generic::MixSoundTwoSpeakerMono( float* mixBuffer, const float* samples, const int numSamples, const float lastV[2], const float currentV[2] )
+{
+	float sL = lastV[0];
+	float sR = lastV[1];
+	float incL = ( currentV[0] - lastV[0] ) / MIXBUFFER_SAMPLES;
+	float incR = ( currentV[1] - lastV[1] ) / MIXBUFFER_SAMPLES;
+	
+	assert( numSamples == MIXBUFFER_SAMPLES );
+	
+	for( int j = 0; j < MIXBUFFER_SAMPLES; j++ )
+	{
+		mixBuffer[j * 2 + 0] += samples[j] * sL;
+		mixBuffer[j * 2 + 1] += samples[j] * sR;
+		sL += incL;
+		sR += incR;
+	}
+}
+
+/*
+============
+idSIMD_Generic::MixSoundTwoSpeakerStereo
+============
+*/
+void VPCALL idSIMD_Generic::MixSoundTwoSpeakerStereo( float* mixBuffer, const float* samples, const int numSamples, const float lastV[2], const float currentV[2] )
+{
+	float sL = lastV[0];
+	float sR = lastV[1];
+	float incL = ( currentV[0] - lastV[0] ) / MIXBUFFER_SAMPLES;
+	float incR = ( currentV[1] - lastV[1] ) / MIXBUFFER_SAMPLES;
+	
+	assert( numSamples == MIXBUFFER_SAMPLES );
+	
+	for( int j = 0; j < MIXBUFFER_SAMPLES; j++ )
+	{
+		mixBuffer[j * 2 + 0] += samples[j * 2 + 0] * sL;
+		mixBuffer[j * 2 + 1] += samples[j * 2 + 1] * sR;
+		sL += incL;
+		sR += incR;
+	}
+}
+
+/*
+============
+idSIMD_Generic::MixSoundSixSpeakerMono
+============
+*/
+void VPCALL idSIMD_Generic::MixSoundSixSpeakerMono( float* mixBuffer, const float* samples, const int numSamples, const float lastV[6], const float currentV[6] )
+{
+	float sL0 = lastV[0];
+	float sL1 = lastV[1];
+	float sL2 = lastV[2];
+	float sL3 = lastV[3];
+	float sL4 = lastV[4];
+	float sL5 = lastV[5];
+	
+	float incL0 = ( currentV[0] - lastV[0] ) / MIXBUFFER_SAMPLES;
+	float incL1 = ( currentV[1] - lastV[1] ) / MIXBUFFER_SAMPLES;
+	float incL2 = ( currentV[2] - lastV[2] ) / MIXBUFFER_SAMPLES;
+	float incL3 = ( currentV[3] - lastV[3] ) / MIXBUFFER_SAMPLES;
+	float incL4 = ( currentV[4] - lastV[4] ) / MIXBUFFER_SAMPLES;
+	float incL5 = ( currentV[5] - lastV[5] ) / MIXBUFFER_SAMPLES;
+	
+	assert( numSamples == MIXBUFFER_SAMPLES );
+	
+	for( int i = 0; i < MIXBUFFER_SAMPLES; i++ )
+	{
+		mixBuffer[i * 6 + 0] += samples[i] * sL0;
+		mixBuffer[i * 6 + 1] += samples[i] * sL1;
+		mixBuffer[i * 6 + 2] += samples[i] * sL2;
+		mixBuffer[i * 6 + 3] += samples[i] * sL3;
+		mixBuffer[i * 6 + 4] += samples[i] * sL4;
+		mixBuffer[i * 6 + 5] += samples[i] * sL5;
+		sL0 += incL0;
+		sL1 += incL1;
+		sL2 += incL2;
+		sL3 += incL3;
+		sL4 += incL4;
+		sL5 += incL5;
+	}
+}
+
+/*
+============
+idSIMD_Generic::MixSoundSixSpeakerStereo
+============
+*/
+void VPCALL idSIMD_Generic::MixSoundSixSpeakerStereo( float* mixBuffer, const float* samples, const int numSamples, const float lastV[6], const float currentV[6] )
+{
+	float sL0 = lastV[0];
+	float sL1 = lastV[1];
+	float sL2 = lastV[2];
+	float sL3 = lastV[3];
+	float sL4 = lastV[4];
+	float sL5 = lastV[5];
+	
+	float incL0 = ( currentV[0] - lastV[0] ) / MIXBUFFER_SAMPLES;
+	float incL1 = ( currentV[1] - lastV[1] ) / MIXBUFFER_SAMPLES;
+	float incL2 = ( currentV[2] - lastV[2] ) / MIXBUFFER_SAMPLES;
+	float incL3 = ( currentV[3] - lastV[3] ) / MIXBUFFER_SAMPLES;
+	float incL4 = ( currentV[4] - lastV[4] ) / MIXBUFFER_SAMPLES;
+	float incL5 = ( currentV[5] - lastV[5] ) / MIXBUFFER_SAMPLES;
+	
+	assert( numSamples == MIXBUFFER_SAMPLES );
+	
+	for( int i = 0; i < MIXBUFFER_SAMPLES; i++ )
+	{
+		mixBuffer[i * 6 + 0] += samples[i * 2 + 0] * sL0;
+		mixBuffer[i * 6 + 1] += samples[i * 2 + 1] * sL1;
+		mixBuffer[i * 6 + 2] += samples[i * 2 + 0] * sL2;
+		mixBuffer[i * 6 + 3] += samples[i * 2 + 0] * sL3;
+		mixBuffer[i * 6 + 4] += samples[i * 2 + 0] * sL4;
+		mixBuffer[i * 6 + 5] += samples[i * 2 + 1] * sL5;
+		sL0 += incL0;
+		sL1 += incL1;
+		sL2 += incL2;
+		sL3 += incL3;
+		sL4 += incL4;
+		sL5 += incL5;
+	}
+}
+
+/*
+============
+idSIMD_Generic::MixedSoundToSamples
+============
+*/
+void VPCALL idSIMD_Generic::MixedSoundToSamples( short* samples, const float* mixBuffer, const int numSamples )
+{
+
+	for( int i = 0; i < numSamples; i++ )
+	{
+		if( mixBuffer[i] <= -32768.0f )
+		{
+			samples[i] = -32768;
+		}
+		else if( mixBuffer[i] >= 32767.0f )
+		{
+			samples[i] = 32767;
+		}
+		else
+		{
+			samples[i] = ( short ) mixBuffer[i];
+		}
+	}
+}
+// RB end
+

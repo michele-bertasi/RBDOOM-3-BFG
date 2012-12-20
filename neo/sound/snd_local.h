@@ -438,8 +438,6 @@ public:
 		return muted;
 	}
 	
-	virtual void			OnReloadSound( const idDecl* sound );
-	
 	virtual void			StopAllSounds();
 	
 	virtual void			InitStreamBuffers();

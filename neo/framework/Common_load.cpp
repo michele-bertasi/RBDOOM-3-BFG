@@ -444,7 +444,10 @@ void idCommonLocal::ExecuteMapChange()
 	soundWorld->Pause();
 	menuSoundWorld->ClearAllSoundEmitters();
 	soundSystem->SetPlayingSoundWorld( menuSoundWorld );
+	
+#if !defined(USE_LEGACY_SOUND_SYSTEM)
 	soundSystem->Render();
+#endif
 	
 	// extract the map name from serverinfo
 	currentMapName = matchParameters.mapName;
@@ -603,7 +606,15 @@ void idCommonLocal::ExecuteMapChange()
 	}
 	
 	renderSystem->EndLevelLoad();
+	
+	// RB begin
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+	soundSystem->EndLevelLoad( currentMapName );
+#else
 	soundSystem->EndLevelLoad();
+#endif
+	// RB end
+	
 	declManager->EndLevelLoad();
 	uiManager->EndLevelLoad( currentMapName );
 	fileSystem->EndLevelLoad();
@@ -688,8 +699,12 @@ void idCommonLocal::ExecuteMapChange()
 	common->Printf( "%6d msec to load %s\n", msec, currentMapName.c_str() );
 	//Sys_DumpMemory( false );
 	
+	// RB begin
+#if !defined(USE_LEGACY_SOUND_SYSTEM)
 	// Issue a render at the very end of the load process to update soundTime before the first frame
 	soundSystem->Render();
+#endif
+	// RB end
 }
 
 /*
@@ -866,7 +881,12 @@ bool idCommonLocal::SaveGame( const char* saveName )
 	
 	soundWorld->Pause();
 	soundSystem->SetPlayingSoundWorld( menuSoundWorld );
+	
+	// RB begin
+#if !defined(USE_LEGACY_SOUND_SYSTEM)
 	soundSystem->Render();
+#endif
+	// RB end
 	
 	Dialog().ShowSaveIndicator( true );
 	if( insideExecuteMapChange )

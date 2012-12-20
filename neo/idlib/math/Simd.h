@@ -84,6 +84,21 @@ class idJointQuat;
 class idJointMat;
 struct dominantTri_t;
 
+// RB begin
+const int MIXBUFFER_SAMPLES = 4096;
+
+typedef enum
+{
+	SPEAKER_LEFT = 0,
+	SPEAKER_RIGHT,
+	SPEAKER_CENTER,
+	SPEAKER_LFE,
+	SPEAKER_BACKLEFT,
+	SPEAKER_BACKRIGHT
+} speakerLabel;
+// RB end
+
+
 class idSIMDProcessor
 {
 public:
@@ -112,6 +127,16 @@ public:
 	virtual void VPCALL ConvertJointMatsToJointQuats( idJointQuat* jointQuats, const idJointMat* jointMats, const int numJoints ) = 0;
 	virtual void VPCALL TransformJoints( idJointMat* jointMats, const int* parents, const int firstJoint, const int lastJoint ) = 0;
 	virtual void VPCALL UntransformJoints( idJointMat* jointMats, const int* parents, const int firstJoint, const int lastJoint ) = 0;
+	// RB begin
+	// sound mixing
+	virtual void VPCALL UpSamplePCMTo44kHz( float* dest, const short* pcm, const int numSamples, const int kHz, const int numChannels ) = 0;
+	virtual void VPCALL UpSampleOGGTo44kHz( float* dest, const float* const* ogg, const int numSamples, const int kHz, const int numChannels ) = 0;
+	virtual void VPCALL MixSoundTwoSpeakerMono( float* mixBuffer, const float* samples, const int numSamples, const float lastV[2], const float currentV[2] ) = 0;
+	virtual void VPCALL MixSoundTwoSpeakerStereo( float* mixBuffer, const float* samples, const int numSamples, const float lastV[2], const float currentV[2] ) = 0;
+	virtual void VPCALL MixSoundSixSpeakerMono( float* mixBuffer, const float* samples, const int numSamples, const float lastV[6], const float currentV[6] ) = 0;
+	virtual void VPCALL MixSoundSixSpeakerStereo( float* mixBuffer, const float* samples, const int numSamples, const float lastV[6], const float currentV[6] ) = 0;
+	virtual void VPCALL MixedSoundToSamples( short* samples, const float* mixBuffer, const int numSamples ) = 0;
+	// RB end
 };
 
 // pointer to SIMD processor

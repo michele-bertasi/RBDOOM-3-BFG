@@ -32,6 +32,8 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "snd_local.h"
 
+idCVar s_volume_dB( "s_volume_dB", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume in dB" );
+
 #ifdef ID_DEDICATED
 idCVar idSoundSystemLocal::s_noSound( "s_noSound", "1", CVAR_SOUND | CVAR_BOOL | CVAR_ROM, "" );
 #else
@@ -51,7 +53,7 @@ idCVar idSoundSystemLocal::s_dotbias2( "s_dotbias2", "1.1", CVAR_SOUND | CVAR_FL
 idCVar idSoundSystemLocal::s_spatializationDecay( "s_spatializationDecay", "2", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "" );
 idCVar idSoundSystemLocal::s_reverse( "s_reverse", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_BOOL, "" );
 idCVar idSoundSystemLocal::s_meterTopTime( "s_meterTopTime", "2000", CVAR_SOUND | CVAR_ARCHIVE | CVAR_INTEGER, "" );
-idCVar idSoundSystemLocal::s_volume( "s_volume_dB", "0", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume in dB" );
+
 idCVar idSoundSystemLocal::s_playDefaultSound( "s_playDefaultSound", "1", CVAR_SOUND | CVAR_ARCHIVE | CVAR_BOOL, "play a beep for missing sounds" );
 idCVar idSoundSystemLocal::s_subFraction( "s_subFraction", "0.75", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume to subwoofer in 5.1" );
 idCVar idSoundSystemLocal::s_globalFraction( "s_globalFraction", "0.8", CVAR_SOUND | CVAR_ARCHIVE | CVAR_FLOAT, "volume to all speakers when not spatialized" );
@@ -332,11 +334,11 @@ initialize the sound system
 */
 void idSoundSystemLocal::Init()
 {
-
 	common->Printf( "----- Initializing Sound System ------\n" );
 	
 	isInitialized = false;
 	muted = false;
+	musicMuted = false;
 	shutdown = false;
 	
 	currentSoundWorld = NULL;
@@ -371,8 +373,8 @@ void idSoundSystemLocal::Init()
 	}
 	
 	// set up openal device and context
-	common->StartupVariable( "s_useOpenAL", true );
-	common->StartupVariable( "s_useEAXReverb", true );
+	//common->StartupVariable( "s_useOpenAL", true );
+	//common->StartupVariable( "s_useEAXReverb", true );
 	
 	// RB begin
 #if defined(USE_OPENAL)
@@ -653,7 +655,7 @@ int idSoundSystemLocal::GetCurrent44kHzTime() const
 	{
 		// NOTE: this would overflow 31bits within about 1h20 ( not that important since we get a snd_audio_hw right away pbly )
 		//return ( ( Sys_Milliseconds()*441 ) / 10 ) * 4;
-		return idMath::FtoiFast( ( float )Sys_Milliseconds() * 176.4f );
+		return idMath::Ftoi( ( float )Sys_Milliseconds() * 176.4f );
 	}
 }
 
@@ -672,7 +674,7 @@ void idSoundSystemLocal::ClearBuffer()
 	}
 	
 	short* fBlock;
-	ulong fBlockLen;
+	uint32 fBlockLen;
 	
 	if( !snd_audio_hw->Lock( ( void** )&fBlock, &fBlockLen ) )
 	{
@@ -729,7 +731,7 @@ int idSoundSystemLocal::AsyncUpdate( int inTime )
 		return 0;
 	}
 	
-	ulong dwCurrentWritePos;
+	uint32 dwCurrentWritePos;
 	dword dwCurrentBlock;
 	
 	// If not using openal, get actual playback position from sound hardware
@@ -767,7 +769,7 @@ int idSoundSystemLocal::AsyncUpdate( int inTime )
 	
 	// lock the buffer so we can actually write to it
 	short* fBlock = NULL;
-	ulong fBlockLen = 0;
+	uint32 fBlockLen = 0;
 	
 	// RB begin
 #if defined(USE_OPENAL)
@@ -1009,17 +1011,18 @@ cinData_t idSoundSystemLocal::ImageForTime( const int milliseconds, const bool w
 	cinData_t ret;
 	int i, j;
 	
-	if( !isInitialized || !snd_audio_hw )
+	//if( !isInitialized || !snd_audio_hw )
 	{
 		memset( &ret, 0, sizeof( ret ) );
 		return ret;
 	}
 	
-	Sys_EnterCriticalSection();
+#if 0
+	//Sys_EnterCriticalSection();
 	
 	if( !graph )
 	{
-		graph = ( dword* )Mem_Alloc( 256 * 128 * 4 );
+		graph = ( dword* )Mem_Alloc( 256 * 128 * 4, TAG_AUDIO );
 	}
 	memset( graph, 0, 256 * 128 * 4 );
 	float* accum = finalMixBuffer;	// unfortunately, these are already clamped
@@ -1199,7 +1202,8 @@ cinData_t idSoundSystemLocal::ImageForTime( const int milliseconds, const bool w
 	ret.imageWidth = 256;
 	ret.image = ( unsigned char* )graph;
 	
-	Sys_LeaveCriticalSection();
+	//Sys_LeaveCriticalSection();
+#endif
 	
 	return ret;
 }
@@ -1284,15 +1288,7 @@ idSoundWorld* idSoundSystemLocal::AllocSoundWorld( idRenderWorld* rw )
 	return local;
 }
 
-/*
-===================
-idSoundSystemLocal::SetMute
-===================
-*/
-void idSoundSystemLocal::SetMute( bool muteOn )
-{
-	muted = muteOn;
-}
+
 
 /*
 ===================
@@ -1337,6 +1333,28 @@ idSoundWorld* idSoundSystemLocal::GetPlayingSoundWorld()
 }
 
 /*
+========================
+idSoundSystemLocal::StopAllSounds
+========================
+*/
+void idSoundSystemLocal::StopAllSounds()
+{
+	currentSoundWorld->StopAllSounds();
+	
+	/*
+	for( int i = 0; i < soundWorlds.Num(); i++ )
+	{
+		idSoundWorld* sw = soundWorlds[i];
+		if( sw )
+		{
+			sw->StopAllSounds();
+		}
+	}
+	hardware.Update();
+	*/
+}
+
+/*
 ===================
 idSoundSystemLocal::BeginLevelLoad
 ===================
@@ -1362,6 +1380,117 @@ void idSoundSystemLocal::BeginLevelLoad()
 }
 
 /*
+========================
+idSoundSystemLocal::LoadSample
+========================
+*/
+idSoundSample* idSoundSystemLocal::LoadSample( const char* name )
+{
+	idStrStatic< MAX_OSPATH > canonical = name;
+	canonical.ToLower();
+	canonical.BackSlashesToSlashes();
+	canonical.StripFileExtension();
+	
+	/*
+	int hashKey = idStr::Hash( canonical );
+	for( int i = sampleHash.First( hashKey ); i != -1; i = sampleHash.Next( i ) )
+	{
+		if( idStr::Cmp( samples[i]->GetName(), canonical ) == 0 )
+		{
+			samples[i]->SetLevelLoadReferenced();
+			return samples[i];
+		}
+	}
+	idSoundSample* sample = new( TAG_AUDIO ) idSoundSample;
+	sample->name = canonical;
+	sampleHash.Add( hashKey, samples.Append( sample ) );
+	if( !insideLevelLoad )
+	{
+		// Sound sample referenced before any map is loaded
+		sample->SetNeverPurge();
+		sample->LoadResource();
+	}
+	else
+	{
+		sample->SetLevelLoadReferenced();
+	}
+	*/
+	
+	idSoundSample* sample = soundCache->FindSound( canonical, false );
+	
+	if( cvarSystem->GetCVarBool( "fs_buildgame" ) )
+	{
+		fileSystem->AddSamplePreload( canonical );
+	}
+	
+	return sample;
+}
+
+/*
+========================
+idSoundSystemLocal::Preload
+========================
+*/
+void idSoundSystemLocal::Preload( idPreloadManifest& manifest )
+{
+
+	idStrStatic< MAX_OSPATH > filename;
+	
+	int	start = Sys_Milliseconds();
+	int numLoaded = 0;
+	
+	idList< preloadSort_t > preloadSort;
+	preloadSort.Resize( manifest.NumResources() );
+	for( int i = 0; i < manifest.NumResources(); i++ )
+	{
+		const preloadEntry_s& p = manifest.GetPreloadByIndex( i );
+		idResourceCacheEntry rc;
+		// FIXME: write these out sorted
+		if( p.resType == PRELOAD_SAMPLE )
+		{
+			if( p.resourceName.Find( "/vo/", false ) >= 0 )
+			{
+				continue;
+			}
+			filename  = "generated/";
+			filename += p.resourceName;
+			filename.SetFileExtension( "idwav" );
+			if( fileSystem->GetResourceCacheEntry( filename, rc ) )
+			{
+				preloadSort_t ps = {};
+				ps.idx = i;
+				ps.ofs = rc.offset;
+				preloadSort.Append( ps );
+			}
+		}
+	}
+	
+	preloadSort.SortWithTemplate( idSort_Preload() );
+	
+	for( int i = 0; i < preloadSort.Num(); i++ )
+	{
+		const preloadSort_t& ps = preloadSort[ i ];
+		const preloadEntry_s& p = manifest.GetPreloadByIndex( ps.idx );
+		filename = p.resourceName;
+		filename.Replace( "generated/", "" );
+		numLoaded++;
+		
+		idSoundSample* sample = LoadSample( filename );
+		/*
+		if( sample != NULL && !sample->IsLoaded() )
+		{
+			sample->Load();
+			sample->levelLoadReferenced = true;
+		}
+		*/
+	}
+	
+	int	end = Sys_Milliseconds();
+	common->Printf( "%05d sounds preloaded in %5.1f seconds\n", numLoaded, ( end - start ) * 0.001 );
+	common->Printf( "----------------------------------------\n" );
+}
+
+/*
 ===================
 idSoundSystemLocal::EndLevelLoad
 ===================
@@ -1376,22 +1505,25 @@ void idSoundSystemLocal::EndLevelLoad( const char* mapstring )
 	
 	// RB begin
 #if defined(USE_OPENAL)
-	idStr efxname( "efxs/" );
-	idStr mapname( mapstring );
-	
-	mapname.SetFileExtension( ".efx" );
-	mapname.StripPath();
-	efxname += mapname;
-	
-	efxloaded = EFXDatabase.LoadFile( efxname );
-	
-	if( efxloaded )
+	if( mapstring != NULL && mapstring[0] != '\0' )
 	{
-		common->Printf( "sound: found %s\n", efxname.c_str() );
-	}
-	else
-	{
-		common->Printf( "sound: missing %s\n", efxname.c_str() );
+		idStr efxname( "efxs/" );
+		idStr mapname( mapstring );
+		
+		mapname.SetFileExtension( ".efx" );
+		mapname.StripPath();
+		efxname += mapname;
+		
+		efxloaded = EFXDatabase.LoadFile( efxname );
+		
+		if( efxloaded )
+		{
+			common->Printf( "sound: found %s\n", efxname.c_str() );
+		}
+		else
+		{
+			common->Printf( "sound: missing %s\n", efxname.c_str() );
+		}
 	}
 #endif
 	// RB end

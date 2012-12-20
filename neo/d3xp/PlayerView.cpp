@@ -368,7 +368,14 @@ idPlayerView::CalculateShake
 */
 void idPlayerView::CalculateShake()
 {
+	// RB begin
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+	float shakeVolume = gameSoundWorld->CurrentShakeAmplitudeForPosition( gameLocal.time, player->firstPersonViewOrigin );
+#else
 	float shakeVolume = gameSoundWorld->CurrentShakeAmplitude();
+#endif
+	// RB end
+	
 	//
 	// shakeVolume should somehow be molded into an angle here
 	// it should be thought of as being in the range 0.0 -> 1.0, although
@@ -437,7 +444,14 @@ void idPlayerView::SingleView( const renderView_t* view, idMenuHandler_HUD* hudM
 	}
 	
 	// place the sound origin for the player
+	
+	// RB begin
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+	gameSoundWorld->PlaceListener( view->vieworg, view->viewaxis, player->entityNumber + 1, gameLocal.time, "Undefined" );
+#else
 	gameSoundWorld->PlaceListener( view->vieworg, view->viewaxis, player->entityNumber + 1 );
+#endif
+	// RB end
 	
 	// if the objective system is up, don't do normal drawing
 	if( player->objectiveSystemOpen )

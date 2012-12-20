@@ -3228,7 +3228,15 @@ void idEarthQuake::Think()
 			}
 			return;
 		}
+		
+		// RB begin
+#if defined(USE_LEGACY_SOUND_SYSTEM)
+		float shakeVolume = gameSoundWorld->CurrentShakeAmplitudeForPosition( gameLocal.time, gameLocal.GetLocalPlayer()->firstPersonViewOrigin );
+#else
 		float shakeVolume = gameSoundWorld->CurrentShakeAmplitude();
+#endif
+		// RB end
+		
 		gameLocal.RadiusPush( GetPhysics()->GetOrigin(), 256, 1500 * shakeVolume, this, this, 1.0f, true );
 	}
 	BecomeInactive( TH_UPDATEVISUALS );

@@ -187,14 +187,14 @@ int idWaveFile::OpenOGG( const char* strFileName, waveformatex_t* pwfx )
 		return -1;
 	}
 	
-	Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
+	//Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
 	
 	ov = new OggVorbis_File;
 	
 	if( ov_openFile( mhmmio, ov ) < 0 )
 	{
 		delete ov;
-		Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
+		//Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
 		fileSystem->CloseFile( mhmmio );
 		mhmmio = NULL;
 		return -1;
@@ -234,7 +234,7 @@ int idWaveFile::OpenOGG( const char* strFileName, waveformatex_t* pwfx )
 	
 	memcpy( pwfx, &mpwfx, sizeof( waveformatex_t ) );
 	
-	Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
+	//Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
 	
 	isOgg = true;
 	
@@ -288,10 +288,10 @@ int idWaveFile::CloseOGG()
 	OggVorbis_File* ov = ( OggVorbis_File* ) ogg;
 	if( ov != NULL )
 	{
-		Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
+		//Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
 		ov_clear( ov );
 		delete ov;
-		Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
+		//Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
 		fileSystem->CloseFile( mhmmio );
 		mhmmio = NULL;
 		ogg = NULL;
@@ -422,7 +422,7 @@ idSampleDecoderLocal::ClearDecoder
 */
 void idSampleDecoderLocal::ClearDecoder()
 {
-	Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
+	//Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
 	
 	switch( lastFormat )
 	{
@@ -440,7 +440,7 @@ void idSampleDecoderLocal::ClearDecoder()
 	
 	Clear();
 	
-	Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
+	//Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
 }
 
 /*
@@ -486,7 +486,7 @@ void idSampleDecoderLocal::Decode( idSoundSample* sample, int sampleOffset44k, i
 	}
 	
 	// samples can be decoded both from the sound thread and the main thread for shakes
-	Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
+	//Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
 	
 	switch( sample->objectInfo.wFormatTag )
 	{
@@ -507,7 +507,7 @@ void idSampleDecoderLocal::Decode( idSoundSample* sample, int sampleOffset44k, i
 		}
 	}
 	
-	Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
+	//Sys_LeaveCriticalSection( CRITICAL_SECTION_ONE );
 	
 	if( readSamples44k < sampleCount44k )
 	{

@@ -114,7 +114,7 @@ idSoundSample* idSoundCache::FindSound( const idStr& filename, bool loadOnDemand
 	}
 	
 	// create a new entry
-	idSoundSample* def = new idSoundSample;
+	idSoundSample* def = new( TAG_AUDIO ) idSoundSample;
 	
 	int shandle = listCache.FindNull();
 	if( shandle != -1 )
@@ -183,10 +183,15 @@ void idSoundCache::BeginLevelLoad()
 			continue;
 		}
 		
-		if( com_purgeAll.GetBool() )
+		if( sample->neverPurge )
 		{
-			sample->PurgeSoundSample();
+			continue;
 		}
+		
+		//if( com_purgeAll.GetBool() )
+		//{
+		//	sample->PurgeSoundSample();
+		//}
 		
 		sample->levelLoadReferenced = false;
 	}
@@ -218,10 +223,12 @@ void idSoundCache::EndLevelLoad()
 		{
 			continue;
 		}
+		
 		if( sample->purged )
 		{
 			continue;
 		}
+		
 		if( !sample->levelLoadReferenced )
 		{
 //			common->Printf( "Purging %s\n", sample->name.c_str() );
@@ -339,6 +346,7 @@ idSoundSample::idSoundSample()
 	defaultSound = false;
 	onDemand = false;
 	purged = false;
+	neverPurge = false;
 	levelLoadReferenced = false;
 }
 
@@ -488,7 +496,7 @@ ID_TIME_T idSoundSample::GetNewTimeStamp() const
 	if( timestamp == FILE_NOT_FOUND_TIMESTAMP )
 	{
 		idStr oggName = name;
-		oggName.SetFileExtension( ".ogg" );
+		oggName.SetFileExtension( ".wav" );
 		fileSystem->ReadFile( oggName, NULL, &timestamp );
 	}
 	return timestamp;

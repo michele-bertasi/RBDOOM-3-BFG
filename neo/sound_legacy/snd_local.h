@@ -79,7 +79,7 @@ typedef enum
 } soundDemoCommand_t;
 
 const int SOUND_MAX_CHANNELS		= 8;
-const int SOUND_DECODER_FREE_DELAY	= 1000 * MIXBUFFER_SAMPLES / USERCMD_MSEC;		// four seconds
+const int SOUND_DECODER_FREE_DELAY	= 1000 * MIXBUFFER_SAMPLES / MS2SEC( 16 );		// four seconds
 
 const int PRIMARYFREQ				= 44100;			// samples per second
 const float SND_EPSILON				= 1.0f / 32768.0f;	// if volume is below this, it will always multiply to zero
@@ -271,9 +271,9 @@ public:
 	
 	virtual bool			Initialize( ) = 0;
 	
-	virtual bool			Lock( void** pDSLockedBuffer, ulong* dwDSLockedBufferSize ) = 0;
+	virtual bool			Lock( void** pDSLockedBuffer, uint32* dwDSLockedBufferSize ) = 0;
 	virtual bool			Unlock( void* pDSLockedBuffer, dword dwDSLockedBufferSize ) = 0;
-	virtual bool			GetCurrentPosition( ulong* pdwCurrentWriteCursor ) = 0;
+	virtual bool			GetCurrentPosition( uint32* pdwCurrentWriteCursor ) = 0;
 	
 	// try to write as many sound samples to the device as possible without blocking and prepare for a possible new mixing call
 	// returns wether there is *some* space for writing available
@@ -554,7 +554,7 @@ public:
 	virtual void		StopSound( const s_channelType channel );
 	virtual void		FadeSound( const s_channelType channel, float to, float over );
 	
-	virtual bool		CurrentlyPlaying() const;
+	virtual bool		CurrentlyPlaying( const s_channelType channel = SCHANNEL_ANY ) const;
 	
 	// can pass SCHANNEL_ANY
 	virtual	float		CurrentAmplitude();
@@ -678,7 +678,9 @@ public:
 	virtual void			ProcessDemoCommand( idDemoFile* readDemo );
 	
 	// background music
-	virtual void			PlayShaderDirectly( const char* name, int channel = -1 );
+	virtual int				PlayShaderDirectly( const char* name, int channel = -1 );
+	
+	virtual void			Skip( int time );
 	
 	// pause and unpause the sound world
 	virtual void			Pause();
@@ -798,19 +800,6 @@ public:
 	virtual bool			ShutdownHW();
 	virtual bool			InitHW();
 	
-	// async loop, called at 60Hz
-	virtual int				AsyncUpdate( int time );
-	// async loop, when the sound driver uses a write strategy
-	virtual int				AsyncUpdateWrite( int time );
-	// direct mixing called from the sound driver thread for OSes that support it
-	virtual int				AsyncMix( int soundTime, float* mixBuffer );
-	
-	virtual void			SetMute( bool mute );
-	
-	virtual cinData_t		ImageForTime( const int milliseconds, const bool waveform );
-	
-	int						GetSoundDecoderInfo( int index, soundDecoderInfo_t& decoderInfo );
-	
 	// if rw == NULL, no portal occlusion or rendered debugging is available
 	virtual idSoundWorld*	AllocSoundWorld( idRenderWorld* rw );
 	
@@ -821,12 +810,54 @@ public:
 	// This can return NULL, so check!
 	virtual idSoundWorld*	GetPlayingSoundWorld();
 	
+	// async loop, called at 60Hz
+	virtual int				AsyncUpdate( int time );
+	
+	// async loop, when the sound driver uses a write strategy
+	virtual int				AsyncUpdateWrite( int time );
+	
+	// direct mixing called from the sound driver thread for OSes that support it
+	virtual int				AsyncMix( int soundTime, float* mixBuffer );
+	
+	// Mutes the SSG_MUSIC group
+	virtual void			MuteBackgroundMusic( bool mute )
+	{
+		musicMuted = mute;
+	}
+	
+	// sets the final output volume to 0
+	// This should only be used when the app is deactivated
+	// Since otherwise there will be problems with different subsystems muting and unmuting at different times
+	virtual void			SetMute( bool mute )
+	{
+		muted = mute;
+	}
+	virtual bool			IsMuted()
+	{
+		return muted;
+	}
+	
+	virtual void			StopAllSounds();
+	
+	// for the sound level meter window
+	virtual cinData_t		ImageForTime( const int milliseconds, const bool waveform );
+	
+	int						GetSoundDecoderInfo( int index, soundDecoderInfo_t& decoderInfo );
+	
+	// Free all sounds loaded during the last map load
 	virtual	void			BeginLevelLoad();
+	
+	// We might want to defer the loading of new sounds to this point
 	virtual	void			EndLevelLoad( const char* mapString );
 	
+	// prints memory info
 	virtual void			PrintMemInfo( MemInfo_t* mi );
 	
 	virtual int				IsEAXAvailable();
+	
+	idSoundSample* 			LoadSample( const char* name );
+	
+	virtual void			Preload( idPreloadManifest& preload );
 	
 	//-------------------------
 	
@@ -860,6 +891,7 @@ public:
 	
 	bool					isInitialized;
 	bool					muted;
+	bool					musicMuted;
 	bool					shutdown;
 	
 	s_stats					soundStats;				// NOTE: updated throughout the code, not displayed anywhere
@@ -906,7 +938,6 @@ public:
 	static idCVar			s_reverse;
 	static idCVar			s_showLevelMeter;
 	static idCVar			s_meterTopTime;
-	static idCVar			s_volume;
 	static idCVar			s_constantAmplitude;
 	static idCVar			s_playDefaultSound;
 	static idCVar			s_useOcclusion;
@@ -937,6 +968,8 @@ public:
 	static idCVar			s_skipHelltimeFX;
 };
 
+extern idCVar s_volume_dB;
+
 extern	idSoundSystemLocal	soundSystemLocal;
 
 
@@ -957,7 +990,7 @@ public:
 	~idSoundSample();
 	
 	idStr					name;						// name of the sample file
-	ID_TIME_T		 			timestamp;					// the most recent of all images used in creation, for reloadImages command
+	ID_TIME_T		 		timestamp;					// the most recent of all images used in creation, for reloadImages command
 	
 	waveformatex_t			objectInfo;					// what are we caching
 	int						objectSize;					// size of waveform in samples, excludes the header
@@ -973,10 +1006,11 @@ public:
 	bool					defaultSound;
 	bool					onDemand;
 	bool					purged;
+	bool					neverPurge;
 	bool					levelLoadReferenced;		// so we can tell which samples aren't needed any more
 	
 	int						LengthIn44kHzSamples() const;
-	ID_TIME_T		 			GetNewTimeStamp() const;
+	ID_TIME_T		 		GetNewTimeStamp() const;
 	void					MakeDefault();				// turns it into a beep
 	void					Load();						// loads the current sound based on name
 	void					Reload( bool force );		// reloads if timestamp has changed, or always if force

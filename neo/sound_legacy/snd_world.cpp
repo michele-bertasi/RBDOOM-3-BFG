@@ -133,7 +133,7 @@ void idSoundWorldLocal::ClearAllSoundEmitters()
 {
 	int i;
 	
-	Sys_EnterCriticalSection();
+	//Sys_EnterCriticalSection();
 	
 	AVIClose();
 	
@@ -144,7 +144,7 @@ void idSoundWorldLocal::ClearAllSoundEmitters()
 	}
 	localSound = NULL;
 	
-	Sys_LeaveCriticalSection();
+	//Sys_LeaveCriticalSection();
 }
 
 /*
@@ -183,9 +183,9 @@ idSoundEmitterLocal* idSoundWorldLocal::AllocLocalSoundEmitter()
 		def = new idSoundEmitterLocal;
 		
 		// we need to protect this from the async thread
-		Sys_EnterCriticalSection();
+		//Sys_EnterCriticalSection();
 		index = emitters.Append( def );
-		Sys_LeaveCriticalSection();
+		//Sys_LeaveCriticalSection();
 		
 		if( idSoundSystemLocal::s_showStartSound.GetInteger() )
 		{
@@ -287,9 +287,9 @@ void idSoundWorldLocal::ProcessDemoCommand( idDemoFile* readDemo )
 			// we need to protect this from the async thread
 			// other instances of calling idSoundWorldLocal::ReadFromSaveGame do this while the sound code is muted
 			// setting muted and going right in may not be good enough here, as we async thread may already be in an async tick (in which case we could still race to it)
-			Sys_EnterCriticalSection();
+			//Sys_EnterCriticalSection();
 			ReadFromSaveGame( readDemo );
-			Sys_LeaveCriticalSection();
+			//Sys_LeaveCriticalSection();
 			UnPause();
 			break;
 		case SCMD_PLACE_LISTENER:
@@ -689,7 +689,7 @@ void idSoundWorldLocal::AVIUpdate()
 			}
 			else
 			{
-				outD[j] = idMath::FtoiFast( s );
+				outD[j] = idMath::Ftoi( s );
 			}
 		}
 		// write to file
@@ -1045,12 +1045,12 @@ void idSoundWorldLocal::PlaceListener( const idVec3& origin, const idMat3& axis,
 	if( fpa[0] )
 	{
 		// exactly 30 fps so the wave file can be used for exact video frames
-		game44kHz = idMath::FtoiFast( gameMsec * ( ( 1000.0f / 60.0f ) / 16.0f ) * 0.001f * 44100.0f );
+		game44kHz = idMath::Ftoi( gameMsec * ( ( 1000.0f / 60.0f ) / 16.0f ) * 0.001f * 44100.0f );
 	}
 	else
 	{
 		// the normal 16 msec / frame
-		game44kHz = idMath::FtoiFast( gameMsec * 0.001f * 44100.0f );
+		game44kHz = idMath::Ftoi( gameMsec * 0.001f * 44100.0f );
 	}
 	
 	listenerPrivateId = listenerId;
@@ -1093,7 +1093,7 @@ void idSoundWorldLocal::ForegroundUpdate( int current44kHzTime )
 		return;
 	}
 	
-	Sys_EnterCriticalSection();
+	//Sys_EnterCriticalSection();
 	
 	// if we are recording an AVI demo, don't use hardware time
 	if( fpa[0] )
@@ -1177,11 +1177,10 @@ void idSoundWorldLocal::ForegroundUpdate( int current44kHzTime )
 		}
 	}
 	
-	Sys_LeaveCriticalSection();
+	//Sys_LeaveCriticalSection();
 	
-	//
+	
 	// the sound meter
-	//
 	if( idSoundSystemLocal::s_showLevelMeter.GetInteger() )
 	{
 		const idMaterial* gui = declManager->FindMaterial( "guis/assets/soundmeter/audiobg", false );
@@ -1195,9 +1194,7 @@ void idSoundWorldLocal::ForegroundUpdate( int current44kHzTime )
 		}
 	}
 	
-	//
 	// optionally dump out the generated sound
-	//
 	if( fpa[0] )
 	{
 		AVIUpdate();
@@ -1520,18 +1517,9 @@ void idSoundWorldLocal::ReadFromSaveGame( idFile* savefile )
 		}
 	}
 	
-	if( session->GetSaveGameVersion() >= 17 )
-	{
-		savefile->Read( &slowmoActive, sizeof( slowmoActive ) );
-		savefile->Read( &slowmoSpeed, sizeof( slowmoSpeed ) );
-		savefile->Read( &enviroSuitActive, sizeof( enviroSuitActive ) );
-	}
-	else
-	{
-		slowmoActive		= false;
-		slowmoSpeed			= 0;
-		enviroSuitActive	= false;
-	}
+	savefile->Read( &slowmoActive, sizeof( slowmoActive ) );
+	savefile->Read( &slowmoSpeed, sizeof( slowmoSpeed ) );
+	savefile->Read( &enviroSuitActive, sizeof( enviroSuitActive ) );
 }
 
 /*
@@ -1652,7 +1640,7 @@ void idSoundWorldLocal::Pause()
 {
 	if( pause44kHz >= 0 )
 	{
-		common->Warning( "idSoundWorldLocal::Pause: already paused" );
+		//common->Warning( "idSoundWorldLocal::Pause: already paused" );
 		return;
 	}
 	
@@ -1699,27 +1687,29 @@ start a music track
   this is called from the main thread
 ===============
 */
-void idSoundWorldLocal::PlayShaderDirectly( const char* shaderName, int channel )
+int idSoundWorldLocal::PlayShaderDirectly( const char* shaderName, int channel )
 {
 
 	if( localSound && channel == -1 )
 	{
 		localSound->StopSound( SCHANNEL_ANY );
+		return 0;
 	}
 	else if( localSound )
 	{
 		localSound->StopSound( channel );
+		return 0;
 	}
 	
 	if( !shaderName || !shaderName[0] )
 	{
-		return;
+		return 0;
 	}
 	
 	const idSoundShader* shader = declManager->FindSound( shaderName );
 	if( !shader )
 	{
-		return;
+		return 0;
 	}
 	
 	if( !localSound )
@@ -1730,10 +1720,24 @@ void idSoundWorldLocal::PlayShaderDirectly( const char* shaderName, int channel 
 	static idRandom	rnd;
 	float	diversity = rnd.RandomFloat();
 	
-	localSound->StartSound( shader, ( channel == -1 ) ? SCHANNEL_ONE : channel , diversity, SSF_GLOBAL );
+	int length = localSound->StartSound( shader, ( channel == -1 ) ? SCHANNEL_ONE : channel , diversity, SSF_GLOBAL );
 	
 	// in case we are at the console without a game doing updates, force an update
 	ForegroundUpdate( soundSystemLocal.GetCurrent44kHzTime() );
+	
+	return length;
+}
+
+/*
+========================
+idSoundWorldLocal::Skip
+========================
+*/
+void idSoundWorldLocal::Skip( int time )
+{
+	//accumulatedPauseTime -= time;
+	//pauseFade.SetVolume( DB_SILENCE );
+	//pauseFade.Fade( 0.0f, s_unpauseFadeInTime.GetInteger(), GetSoundTime() );
 }
 
 /*
@@ -1903,7 +1907,7 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal* sound, idSo
 	}
 	
 	// global volume scale
-	volume *= soundSystemLocal.dB2Scale( idSoundSystemLocal::s_volume.GetFloat() );
+	volume *= soundSystemLocal.dB2Scale( s_volume_dB.GetFloat() );
 	
 	
 	// volume fading
