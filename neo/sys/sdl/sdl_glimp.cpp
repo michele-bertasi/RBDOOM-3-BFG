@@ -267,6 +267,10 @@ bool GLimp_Init( glimpParms_t parms )
 	
 	QGL_Init( "nodriverlib" );
 	
+	// DG: disable cursor, we have two cursors in menu (because mouse isn't grabbed in menu)
+	SDL_ShowCursor( SDL_DISABLE );
+	// DG end
+	
 	return true;
 }
 
@@ -374,11 +378,13 @@ void GLimp_GrabInput( int flags )
 	}
 	
 #if SDL_VERSION_ATLEAST(2, 0, 0)
-	SDL_ShowCursor( flags & GRAB_HIDECURSOR ? SDL_DISABLE : SDL_ENABLE );
-	SDL_SetRelativeMouseMode( flags & GRAB_HIDECURSOR ? SDL_TRUE : SDL_FALSE );
+	// DG: disabling the cursor is now done once in GLimp_Init() because it should always be disabled
+	
+	// DG: check for GRAB_ENABLE instead of GRAB_HIDECURSOR because we always wanna hide it
+	SDL_SetRelativeMouseMode( flags & GRAB_ENABLE ? SDL_TRUE : SDL_FALSE );
 	SDL_SetWindowGrab( window, grab ? SDL_TRUE : SDL_FALSE );
 #else
-	SDL_ShowCursor( flags & GRAB_HIDECURSOR ? SDL_DISABLE : SDL_ENABLE );
+	// DG end
 	SDL_WM_GrabInput( grab ? SDL_GRAB_ON : SDL_GRAB_OFF );
 #endif
 }
@@ -441,22 +447,74 @@ R_GetModeListForDisplay
 */
 bool R_GetModeListForDisplay( const int requestedDisplayNum, idList<vidMode_t>& modeList )
 {
+	assert( requestedDisplayNum >= 0 );
+	
 	modeList.Clear();
-	
 #if SDL_VERSION_ATLEAST(2, 0, 0)
-	// RB: TODO didn't find SDL_ListModes API
-	FillStaticVidModes( modeList );
+	// DG: SDL2 implementation
+	if( requestedDisplayNum >= SDL_GetNumVideoDisplays() )
+	{
+		// requested invalid displaynum
+		return false;
+	}
+	
+	int numModes = SDL_GetNumDisplayModes( requestedDisplayNum );
+	if( numModes > 0 )
+	{
+		for( int i = 0; i < numModes; i++ )
+		{
+			SDL_DisplayMode m;
+			int ret = SDL_GetDisplayMode( requestedDisplayNum, i, &m );
+			if( ret != 0 )
+			{
+				common->Warning( "Can't get video mode no %i, because of %s\n", i, SDL_GetError() );
+				continue;
+			}
+			
+			vidMode_t mode;
+			mode.width = m.w;
+			mode.height = m.h;
+			mode.displayHz = m.refresh_rate ? m.refresh_rate : 60; // default to 60 if unknown (0)
+			modeList.AddUnique( mode );
+		}
+		
+		if( modeList.Num() < 1 )
+		{
+			common->Warning( "Couldn't get a single video mode for display %i, using default ones..!\n", requestedDisplayNum );
+			FillStaticVidModes( modeList );
+		}
+		
+		// sort with lowest resolution first
+		modeList.SortWithTemplate( idSort_VidMode() );
+	}
+	else
+	{
+		common->Warning( "Can't get Video Info, using default modes...\n" );
+		if( numModes < 0 )
+		{
+			common->Warning( "Reason was: %s\n", SDL_GetError() );
+		}
+		FillStaticVidModes( modeList );
+	}
+	
 	return true;
+	// DG end
 	
-#else
+#else // SDL 1
 	
-	bool	verbose = false;
+	// DG: SDL1 only knows of one display - some functions rely on
+	// R_GetModeListForDisplay() returning false for invalid displaynum to iterate all displays
+	if( requestedDisplayNum >= 1 )
+	{
+		return false;
+	}
+	// DG end
 	
 	const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 	if( videoInfo == NULL )
 	{
 		// DG: yes, this can actually fail, e.g. if SDL_Init( SDL_INIT_VIDEO ) wasn't called
-		common->Warning( "Can't get Video Info!\n" );
+		common->Warning( "Can't get Video Info, using default modes...\n" );
 		FillStaticVidModes( modeList );
 		return true;
 	}
@@ -465,7 +523,7 @@ bool R_GetModeListForDisplay( const int requestedDisplayNum, idList<vidMode_t>& 
 	
 	if( !modes )
 	{
-		common->Warning( "Can't get list of available modes\n" );
+		common->Warning( "Can't get list of available modes, using default ones...\n" );
 		FillStaticVidModes( modeList );
 		return true;
 	}

@@ -640,7 +640,10 @@ idCommonLocal::CheckStartupStorageRequirements
 */
 void idCommonLocal::CheckStartupStorageRequirements()
 {
+	// RB: disabled savegame and profile storage checks, because it fails sometimes without any clear reason
+#if 0
 	int64 availableSpace = 0;
+	
 	// ------------------------------------------------------------------------
 	// Savegame and Profile required storage
 	// ------------------------------------------------------------------------
@@ -717,7 +720,8 @@ void idCommonLocal::CheckStartupStorageRequirements()
 		
 		common->Dialog().AddDynamicDialog( GDM_INSUFFICENT_STORAGE_SPACE, callbacks, optionText, true, msg );
 	}
-	
+#endif
+	// RB end
 	
 	session->GetAchievementSystem().Start();
 }
