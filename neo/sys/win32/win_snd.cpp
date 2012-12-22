@@ -41,7 +41,7 @@ If you have questions concerning this license or the applicable additional terms
 #include <ksmedia.h>
 
 // RB begin
-#if defined(USE_LEGACY_SOUND_SYSTEM)
+#if 0 //defined(USE_LEGACY_SOUND_SYSTEM)
 #include "../../sound_legacy/snd_local.h"
 #include "win_local.h"
 

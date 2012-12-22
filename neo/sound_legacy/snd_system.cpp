@@ -1433,7 +1433,6 @@ idSoundSystemLocal::Preload
 */
 void idSoundSystemLocal::Preload( idPreloadManifest& manifest )
 {
-
 	idStrStatic< MAX_OSPATH > filename;
 	
 	int	start = Sys_Milliseconds();

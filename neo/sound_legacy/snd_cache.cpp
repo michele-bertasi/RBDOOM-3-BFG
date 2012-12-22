@@ -90,11 +90,17 @@ Adds a sound object to the cache and returns a handle for it.
 */
 idSoundSample* idSoundCache::FindSound( const idStr& filename, bool loadOnDemandOnly )
 {
-	idStr fname;
+	//idStrStatic< MAX_OSPATH > fname;
+	//canonical.ToLower();
+	//canonical.BackSlashesToSlashes();
+	//canonical.StripFileExtension();
+
+	idStrStatic< MAX_OSPATH > fname;
 	
 	fname = filename;
 	fname.BackSlashesToSlashes();
 	fname.ToLower();
+	fname.StripFileExtension();
 	
 	declManager->MediaPrint( "%s\n", fname.c_str() );
 	
@@ -332,6 +338,9 @@ idSoundSample::idSoundSample
 */
 idSoundSample::idSoundSample()
 {
+	timestamp = FILE_NOT_FOUND_TIMESTAMP;
+	loaded = false;
+
 	memset( &objectInfo, 0, sizeof( waveformatex_t ) );
 	objectSize = 0;
 	objectMemSize = 0;
@@ -503,6 +512,44 @@ ID_TIME_T idSoundSample::GetNewTimeStamp() const
 }
 
 /*
+========================
+idSoundSample::LoadGeneratedSound
+========================
+*/
+bool idSoundSample::LoadGeneratedSample( const idStr& filename )
+{
+	idFileLocal fileIn( fileSystem->OpenFileReadMemory( filename ) );
+	if( fileIn != NULL )
+	{
+		uint32 magic;
+		fileIn->ReadBig( magic );
+		fileIn->ReadBig( timestamp );
+		fileIn->ReadBig( loaded );
+		fileIn->ReadBig( playBegin );
+		fileIn->ReadBig( playLength );
+		idWaveFile::ReadWaveFormatDirect( format, fileIn );
+		int num;
+		fileIn->ReadBig( num );
+		amplitude.Clear();
+		amplitude.SetNum( num );
+		fileIn->Read( amplitude.Ptr(), amplitude.Num() );
+		fileIn->ReadBig( totalBufferSize );
+		fileIn->ReadBig( num );
+		buffers.SetNum( num );
+		for( int i = 0; i < num; i++ )
+		{
+			fileIn->ReadBig( buffers[ i ].numSamples );
+			fileIn->ReadBig( buffers[ i ].bufferSize );
+			buffers[ i ].buffer = AllocBuffer( buffers[ i ].bufferSize, GetName() );
+			fileIn->Read( buffers[ i ].buffer, buffers[ i ].bufferSize );
+			buffers[ i ].buffer = GPU_CONVERT_CPU_TO_CPU_CACHED_READONLY_ADDRESS( buffers[ i ].buffer );
+		}
+		return true;
+	}
+	return false;
+}
+
+/*
 ===================
 idSoundSample::Load
 
@@ -511,10 +558,19 @@ Loads based on name, possibly doing a MakeDefault if necessary
 */
 void idSoundSample::Load()
 {
+	extern idCVar sys_lang;
+
 	defaultSound = false;
 	purged = false;
 	hardwareBuffer = false;
 	
+	if( idStr::Icmpn( name.c_str(), "_default", 8 ) == 0 )
+	{
+		MakeDefault();
+		return;
+	}
+
+	/*
 	timestamp = GetNewTimeStamp();
 	
 	if( timestamp == FILE_NOT_FOUND_TIMESTAMP )
@@ -523,41 +579,114 @@ void idSoundSample::Load()
 		MakeDefault();
 		return;
 	}
+	*/
+
+	loaded = false;
 	
+	for( int i = 0; i < 2; i++ )
+	{
+		idStrStatic< MAX_OSPATH > sampleName = name;
+		if( ( i == 0 ) && !sampleName.Replace( "/vo/", va( "/vo/%s/", sys_lang.GetString() ) ) )
+		{
+			i++;
+		}
+		idStrStatic< MAX_OSPATH > generatedName = "generated/";
+		generatedName.Append( sampleName );
+		
+		{
+			if( 0 ) //s_useCompression.GetBool() )
+			{
+				sampleName.Append( ".msadpcm" );
+			}
+			else
+			{
+				sampleName.Append( ".wav" );
+			}
+			generatedName.Append( ".idwav" );
+		}
+		loaded = LoadGeneratedSample( generatedName ) || LoadWav( sampleName );
+		
+		if( !loaded )//&& s_useCompression.GetBool() )
+		{
+			sampleName.SetFileExtension( "wav" );
+			loaded = LoadWav( sampleName );
+		}
+		
+		if( loaded )
+		{
+			/*
+			if( cvarSystem->GetCVarBool( "fs_buildresources" ) )
+			{
+				fileSystem->AddSamplePreload( GetName() );
+				WriteAllSamples( GetName() );
+				
+				if( sampleName.Find( "/vo/" ) >= 0 )
+				{
+					for( int i = 0; i < Sys_NumLangs(); i++ )
+					{
+						const char* lang = Sys_Lang( i );
+						if( idStr::Icmp( lang, ID_LANG_ENGLISH ) == 0 )
+						{
+							continue;
+						}
+						idStrStatic< MAX_OSPATH > locName = GetName();
+						locName.Replace( "/vo/", va( "/vo/%s/", Sys_Lang( i ) ) );
+						WriteAllSamples( locName );
+					}
+				}
+			}
+			*/
+			return;
+		}
+	}
+
+	if( !loaded )
+	{
+		// make it default if everything else fails
+		common->Warning( "Couldn't load sound '%s' using default", name.c_str() );
+		MakeDefault();
+	}
+}
+
+bool idSoundSample::LoadWav( const idStr& filename )
+{
+#if 0
 	// load it
 	idWaveFile	fh;
 	waveformatex_t info;
 	
-	if( fh.Open( name, &info ) == -1 )
+	if( fh.Open( filename, &info ) == -1 )
 	{
-		common->Warning( "Couldn't load sound '%s' using default", name.c_str() );
+		common->Warning( "Couldn't load sound '%s' using default", filename.c_str() );
 		MakeDefault();
-		return;
+		return false;
 	}
 	
 	if( info.nChannels != 1 && info.nChannels != 2 )
 	{
-		common->Warning( "idSoundSample: %s has %i channels, using default", name.c_str(), info.nChannels );
+		common->Warning( "idSoundSample: %s has %i channels, using default", filename.c_str(), info.nChannels );
 		fh.Close();
 		MakeDefault();
-		return;
+		return false;
 	}
 	
 	if( info.wBitsPerSample != 16 )
 	{
-		common->Warning( "idSoundSample: %s is %dbits, expected 16bits using default", name.c_str(), info.wBitsPerSample );
+		common->Warning( "idSoundSample: %s is %dbits, expected 16bits using default", filename.c_str(), info.wBitsPerSample );
 		fh.Close();
 		MakeDefault();
-		return;
+		return false;
 	}
 	
 	if( info.nSamplesPerSec != 44100 && info.nSamplesPerSec != 22050 && info.nSamplesPerSec != 11025 )
 	{
-		common->Warning( "idSoundCache: %s is %dHz, expected 11025, 22050 or 44100 Hz. Using default", name.c_str(), info.nSamplesPerSec );
+		common->Warning( "idSoundCache: %s is %dHz, expected 11025, 22050 or 44100 Hz. Using default", filename.c_str(), info.nSamplesPerSec );
 		fh.Close();
 		MakeDefault();
-		return;
+		return false;
 	}
+
+	timestamp = fh.Timestamp();
 	
 	objectInfo = info;
 	objectSize = fh.GetOutputSize();
@@ -731,6 +860,11 @@ void idSoundSample::Load()
 
 
 	fh.Close();
+
+	return true;
+#else
+	return false;
+#endif
 }
 
 /*

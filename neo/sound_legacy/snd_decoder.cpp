@@ -91,6 +91,7 @@ void _decoder_free( void* memblock )
 ===================================================================================
 */
 
+#if 0
 /*
 ====================
 FS_ReadOGG
@@ -300,6 +301,7 @@ int idWaveFile::CloseOGG()
 	return -1;
 }
 
+#endif
 
 /*
 ===================================================================================
@@ -565,6 +567,7 @@ int idSampleDecoderLocal::DecodePCM( idSoundSample* sample, int sampleOffset44k,
 idSampleDecoderLocal::DecodeOGG
 ====================
 */
+/*
 int idSampleDecoderLocal::DecodeOGG( idSoundSample* sample, int sampleOffset44k, int sampleCount44k, float* dest )
 {
 	int readSamples, totalSamples;
@@ -639,3 +642,4 @@ int idSampleDecoderLocal::DecodeOGG( idSoundSample* sample, int sampleOffset44k,
 	
 	return ( readSamples << shift );
 }
+*/

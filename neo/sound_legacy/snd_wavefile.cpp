@@ -31,6 +31,9 @@ If you have questions concerning this license or the applicable additional terms
 
 #include "snd_local.h"
 
+
+#if 0
+
 //-----------------------------------------------------------------------------
 // Name: idWaveFile::idWaveFile()
 // Desc: Constructs the class.  Call Open() to open a wave file for reading.
@@ -409,3 +412,5 @@ int idWaveFile::Seek( int offset )
 	}
 	return -1;
 }
+
+#endif

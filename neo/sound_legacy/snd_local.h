@@ -204,6 +204,9 @@ idWaveFile
 ===================================================================================
 */
 
+#if 1
+#include "WaveFile.h"
+#else
 class idWaveFile
 {
 public:
@@ -217,6 +220,11 @@ public:
 	int				Close();
 	int				ResetFile();
 	
+	ID_TIME_T		Timestamp()
+	{
+		return mhmmio->Timestamp();
+	}
+
 	int				GetOutputSize()
 	{
 		return mdwSize;
@@ -252,6 +260,7 @@ private:
 	int				ReadOGG( byte* pBuffer, int dwSizeToRead, int* pdwSizeRead );
 	int				CloseOGG();
 };
+#endif
 
 
 /*
@@ -989,8 +998,29 @@ public:
 	idSoundSample();
 	~idSoundSample();
 	
+	struct sampleBuffer_t
+	{
+		void* buffer;
+		int bufferSize;
+		int numSamples;
+	};
+
 	idStr					name;						// name of the sample file
+	
 	ID_TIME_T		 		timestamp;					// the most recent of all images used in creation, for reloadImages command
+	bool					loaded;
+
+	uint32					lastPlayedTime;
+	
+	int						totalBufferSize;	// total size of all the buffers
+	idList<sampleBuffer_t, TAG_AUDIO> buffers;
+	
+	int						playBegin;
+	int						playLength;
+	
+	idWaveFile::waveFmt_t	format;
+	
+	idList<byte, TAG_AMPLITUDE> amplitude;
 	
 	waveformatex_t			objectInfo;					// what are we caching
 	int						objectSize;					// size of waveform in samples, excludes the header
@@ -1009,10 +1039,17 @@ public:
 	bool					neverPurge;
 	bool					levelLoadReferenced;		// so we can tell which samples aren't needed any more
 	
+	const char*				GetName() const
+	{
+		return name;
+	}
+
 	int						LengthIn44kHzSamples() const;
 	ID_TIME_T		 		GetNewTimeStamp() const;
 	void					MakeDefault();				// turns it into a beep
 	void					Load();						// loads the current sound based on name
+	bool					LoadWav( const idStr& filename );
+	bool					LoadGeneratedSample( const idStr& filename );
 	void					Reload( bool force );		// reloads if timestamp has changed, or always if force
 	void					PurgeSoundSample();			// frees all data
 	void					CheckForDownSample();		// down sample if required
