@@ -27,7 +27,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 #pragma hdrstop
 
 #include "Common_local.h"
@@ -592,8 +592,11 @@ CONSOLE_COMMAND( crash, "causes a crash", NULL )
 		commonLocal.Printf( "crash may only be used in developer mode\n" );
 		return;
 	}
-	
+#ifdef __GNUC__
+	__builtin_trap();
+#else
 	* ( int* ) 0 = 0x12345678;
+#endif
 }
 
 /*

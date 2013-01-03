@@ -53,6 +53,9 @@ If you have questions concerning this license or the applicable additional terms
 #define SDLK_KP_9 SDLK_KP9
 #define SDLK_NUMLOCKCLEAR SDLK_NUMLOCK
 #define SDLK_PRINTSCREEN SDLK_PRINT
+// DG: SDL1 doesn't seem to have defines for scancodes.. add the (only) one we need
+#define SDL_SCANCODE_GRAVE 49 // in SDL2 this is 53.. but according to two different systems and keyboards this works for SDL1
+// DG end
 #endif
 
 const char* kbdNames[] =
@@ -161,6 +164,33 @@ static int SDL_KeyToDoom3Key( SDL_Keycode key, bool& isChar )
 			
 		case SDLK_9:
 			return K_9;
+			
+			// DG: add some missing keys..
+		case SDLK_UNDERSCORE:
+			return K_UNDERLINE;
+			
+		case SDLK_MINUS:
+			return K_MINUS;
+			
+		case SDLK_COMMA:
+			return K_COMMA;
+			
+		case SDLK_COLON:
+			return K_COLON;
+			
+		case SDLK_SEMICOLON:
+			return K_SEMICOLON;
+			
+		case SDLK_PERIOD:
+			return K_PERIOD;
+			
+		case SDLK_AT:
+			return K_AT;
+			
+		case SDLK_EQUALS:
+			return K_EQUALS;
+			// DG end
+			
 			/*
 			SDLK_COLON		= 58,
 			SDLK_SEMICOLON		= 59,
@@ -657,6 +687,19 @@ sysEvent_t Sys_GetEvent()
 		
 		return res;
 	}
+	
+	// DG: fake a "mousewheel not pressed anymore" event for SDL2
+	// so scrolling in menus stops after one step
+	static int mwheelRel = 0;
+	if( mwheelRel )
+	{
+		res.evType = SE_KEY;
+		res.evValue = mwheelRel;
+		res.evValue2 = 0; // "not pressed anymore"
+		mwheelRel = 0;
+		return res;
+	}
+	// DG end
 #endif
 	
 	static byte c = 0;
@@ -698,6 +741,8 @@ sysEvent_t Sys_GetEvent()
 					case SDL_WINDOWEVENT_FOCUS_LOST:
 						GLimp_GrabInput( 0 );
 						break;
+						
+						// TODO: SDL_WINDOWEVENT_RESIZED
 				}
 				
 				return res_none;
@@ -768,7 +813,7 @@ sysEvent_t Sys_GetEvent()
 						else
 						{
 							if( ev.type == SDL_KEYDOWN )
-								common->Warning( "unmapped SDL key %d (0x%x)", ev.key.keysym.sym, ev.key.keysym.unicode );
+								common->Warning( "unmapped SDL key %d (0x%x) scancode %d", ev.key.keysym.sym, ev.key.keysym.unicode, ev.key.keysym.scancode );
 							return res_none;
 						}
 					}
@@ -780,16 +825,15 @@ sysEvent_t Sys_GetEvent()
 				
 				kbd_polls.Append( kbd_poll_t( key, ev.key.state == SDL_PRESSED ) );
 				
-#if SDL_VERSION_ATLEAST(2, 0, 0)
 				if( key == K_BACKSPACE && ev.key.state == SDL_PRESSED )
 					c = key;
-#else
+#if ! SDL_VERSION_ATLEAST(2, 0, 0)
 				if( ev.key.state == SDL_PRESSED && isChar && ( ev.key.keysym.unicode & 0xff00 ) == 0 )
 				{
 					c = ev.key.keysym.unicode & 0xff;
 				}
 #endif
-					
+				
 				return res;
 			}
 			
@@ -842,6 +886,10 @@ sysEvent_t Sys_GetEvent()
 					res.evValue = K_MWHEELDOWN;
 					mouse_polls.Append( mouse_poll_t( M_DELTAZ, -1 ) );
 				}
+				
+				// DG: remember mousewheel direction to issue a "not pressed anymore" event
+				mwheelRel = res.evValue;
+				// DG end
 				
 				res.evValue2 = 1;
 				

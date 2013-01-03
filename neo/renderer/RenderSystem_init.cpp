@@ -28,7 +28,7 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #pragma hdrstop
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 
 #include "tr_local.h"
 
@@ -1298,7 +1298,7 @@ void R_ReadTiledPixels( int width, int height, byte* buffer, renderView_t* ref =
 			else
 			{
 				const bool captureToImage = false;
-				common->UpdateScreen( captureToImage );
+				common->UpdateScreen( captureToImage, false );
 			}
 			
 			int w = sysWidth;

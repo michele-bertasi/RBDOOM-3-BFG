@@ -38,12 +38,21 @@ if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
 		add_definitions(-DUSE_EXCEPTIONS)
 	#endif()
 	
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG -O0 -ggdb  -Wno-pragmas -fno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
-	#set(CMAKE_C_FLAGS_DEBUGALL "${CMAKE_C_FLAGS_DEBUGALL} -g -ggdb -D_DEBUG -Wno-pragmas -fno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
-	#set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_PROFILE} -g -ggdb -D_DEBUG -O1 -fno-omit-frame-pointer -Wunknown-pragmas -fno-strict-aliasing  -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
-	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -Wno-pragmas -fno-strict-aliasing  -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
-	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -g -O3 -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -Wno-pragmas -fno-strict-aliasing  -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
-	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -Wno-pragmas -fno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch")
+	# the warnings are used for every profile anyway, so put them in a variable
+	set(my_warn_flags "-Wno-pragmas -fno-strict-aliasing -Wno-unused-variable -Wno-unused-but-set-variable -Wno-switch -Wno-unused-value")
+	
+	if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+		# append clang-specific settings for warnings (the second one make sure clang doesn't complain
+		# about unknown -W flags, like -Wno-unused-but-set-variable)
+		set(my_warn_flags "${my_warn_flags} -Wno-local-type-template-args -Wno-unknown-warning-option")
+	endif()
+	
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG -O0 -ggdb -fno-strict-aliasing ${my_warn_flags}")
+	#set(CMAKE_C_FLAGS_DEBUGALL "${CMAKE_C_FLAGS_DEBUGALL} -g -ggdb -D_DEBUG -fno-strict-aliasing ${my_warn_flags}")
+	#set(CMAKE_C_FLAGS_PROFILE "${CMAKE_C_FLAGS_PROFILE} -g -ggdb -D_DEBUG -O1 -fno-omit-frame-pointer -fno-strict-aliasing ${my_warn_flags}")
+	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -fno-strict-aliasing ${my_warn_flags}")
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -g -O3 -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -fno-strict-aliasing ${my_warn_flags}")
+	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -ffast-math -fno-unsafe-math-optimizations -fomit-frame-pointer -fno-strict-aliasing ${my_warn_flags}")
 	
 	set(CMAKE_CXX_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
 	#set(CMAKE_CXX_FLAGS_DEBUGALL ${CMAKE_C_FLAGS_DEBUGALL})
@@ -297,6 +306,9 @@ file(GLOB PNG_SOURCES libs/png/*.c)
 
 file(GLOB ZLIB_INCLUDES libs/zlib/*.h)
 file(GLOB ZLIB_SOURCES libs/zlib/*.c)
+
+file(GLOB MINIZIP_INCLUDES libs/zlib/minizip/*.h)
+file(GLOB MINIZIP_SOURCES libs/zlib/minizip/*.c libs/zlib/minizip/*.cpp)
 	
 set(GLEW_INCLUDES
 	libs/glew/include/GL/glew.h)
@@ -789,6 +801,9 @@ source_group("libs\\png" FILES ${PNG_SOURCES})
 source_group("libs\\zlib" FILES ${ZLIB_INCLUDES})
 source_group("libs\\zlib" FILES ${ZLIB_SOURCES})
 
+source_group("libs\\zlib\\minizip" FILES ${MINIZIP_INCLUDES})
+source_group("libs\\zlib\\minizip" FILES ${MINIZIP_SOURCES})
+
 source_group("libs\\glew" FILES ${GLEW_INCLUDES})
 source_group("libs\\glew" FILES ${GLEW_SOURCES})
 
@@ -918,17 +933,18 @@ source_group("tools\\sound" FILES ${EDITOR_SOUND_INCLUDES})
 source_group("tools\\sound" FILES ${EDITOR_SOUND_SOURCES})
 
 
-set(RBDOOM3_SOURCES
-			${AAS_INCLUDES} ${AAS_SOURCES}
-			${CM_INCLUDES} ${CM_SOURCES}
-			${FRAMEWORK_INCLUDES} ${FRAMEWORK_SOURCES}
-			${FRAMEWORK_ASYNC_INCLUDES} ${FRAMEWORK_ASYNC_SOURCES} 
-			${RENDERER_INCLUDES} ${RENDERER_SOURCES}
-			#${IRRXML_INCLUDES} ${IRRXML_SOURCES}
-			${JPEG_INCLUDES} ${JPEG_SOURCES}
-			#${PNG_INCLUDES} ${PNG_SOURCES}
-			${ZLIB_INCLUDES} ${ZLIB_SOURCES}
-			#${GLEW_INCLUDES} ${GLEW_SOURCES}
+set(RBDOOM3_INCLUDES
+			${AAS_INCLUDES}
+			${CM_INCLUDES}
+			${FRAMEWORK_INCLUDES}
+			${FRAMEWORK_ASYNC_INCLUDES}
+			${RENDERER_INCLUDES}
+			#${IRRXML_INCLUDES}
+			${JPEG_INCLUDES}
+			#${PNG_INCLUDES}
+			${ZLIB_INCLUDES}
+			${MINIZIP_INCLUDES}
+			#${GLEW_INCLUDES}
 			#${FREETYPE_SOURCES}
 			${UI_INCLUDES} ${UI_SOURCES}
 			${SWF_INCLUDES} ${SWF_SOURCES}
@@ -939,6 +955,30 @@ set(RBDOOM3_SOURCES
 			#${COMPILER_RENDERBUMP_INCLUDES} ${COMPILER_RENDERBUMP_SOURCES}
 			#${COMPILER_ROQVQ_INCLUDES} ${COMPILER_ROQVQ_SOURCES}
 			)
+			
+set(RBDOOM3_SOURCES
+			${AAS_SOURCES}
+			${CM_SOURCES}
+			${FRAMEWORK_SOURCES}
+			${FRAMEWORK_ASYNC_SOURCES} 
+			${RENDERER_SOURCES}
+			#${IRRXML_SOURCES}
+			${JPEG_SOURCES}
+			#${PNG_SOURCES}
+			${ZLIB_SOURCES}
+			${MINIZIP_SOURCES}
+			#${GLEW_SOURCES}
+			#${FREETYPE_SOURCES}
+			${SOUND_SOURCES}
+			#${OGGVORBIS_INCLUDES} ${OGGVORBIS_SOURCES}
+			${UI_SOURCES}
+			${SWF_SOURCES}
+			
+			#${COMPILER_AAS_SOURCES}
+			#${COMPILER_DMAP_SOURCES}
+			#${COMPILER_RENDERBUMP_SOURCES}
+			#${COMPILER_ROQVQ_SOURCES}
+			)
 
 add_definitions(-D__DOOM__
 				#-DGLEW_STATIC
@@ -947,20 +987,30 @@ add_definitions(-D__DOOM__
 				)
 				
 if(MONOLITH)
+	list(APPEND RBDOOM3_INCLUDES
+		${GAMED3XP_INCLUDES}
+		${GAMED3XP_AI_INCLUDES} 
+		${GAMED3XP_ANIM_INCLUDES} 
+		${GAMED3XP_GAMESYS_INCLUDES} 
+		${GAMED3XP_MENUS_INCLUDES}
+		${GAMED3XP_PHYSICS_INCLUDES}
+		${GAMED3XP_SCRIPT_INCLUDES})
+		
 	list(APPEND RBDOOM3_SOURCES
-		${GAMED3XP_INCLUDES} ${GAMED3XP_SOURCES}
-		${GAMED3XP_AI_INCLUDES} ${GAMED3XP_AI_SOURCES}
-		${GAMED3XP_ANIM_INCLUDES} ${GAMED3XP_ANIM_SOURCES}
-		${GAMED3XP_GAMESYS_INCLUDES} ${GAMED3XP_GAMESYS_SOURCES}
-		${GAMED3XP_MENUS_INCLUDES} ${GAMED3XP_MENUS_SOURCES}
-		${GAMED3XP_PHYSICS_INCLUDES} ${GAMED3XP_PHYSICS_SOURCES}
-		${GAMED3XP_SCRIPT_INCLUDES} ${GAMED3XP_SCRIPT_SOURCES})
+		${GAMED3XP_SOURCES}
+		${GAMED3XP_AI_SOURCES}
+		${GAMED3XP_ANIM_SOURCES}
+		${GAMED3XP_GAMESYS_SOURCES}
+		${GAMED3XP_MENUS_SOURCES}
+		${GAMED3XP_PHYSICS_SOURCES}
+		${GAMED3XP_SCRIPT_SOURCES})
 else()
 	add_definitions(-D__DOOM_DLL__)
 endif()
 
 include_directories(
 			.
+			idlib
 			#libs/curl/include
 			#libs/openal/include
 			#libs/glew/include
@@ -1032,14 +1082,52 @@ if(MSVC)
 			${EDITOR_SOUND_INCLUDES} ${EDITOR_SOUND_SOURCES})
 	endif()
 	
-	list(APPEND RBDOOM3_SOURCES
-		${SYS_INCLUDES} ${SYS_SOURCES}
-		${WIN32_INCLUDES} ${WIN32_SOURCES} ${WIN32_RESOURCES})
+	list(APPEND RBDOOM3_INLCUDES
+		${DOOMCLASSIC_INCLUDES}
+		${TIMIDITY_INCLUDES}
 		
+		${SYS_INCLUDES} 
+		${XAUDIO2_INCLUDES}
+		${WIN32_INCLUDES})
+		
+	list(APPEND RBDOOM3_SOURCES
+		${SYS_SOURCES}
+		${XAUDIO2_SOURCES}
+		${WIN32_SOURCES})
 
 	list(REMOVE_DUPLICATES RBDOOM3_SOURCES)
 	
-	add_executable(RBDoom3BFG WIN32 ${RBDOOM3_SOURCES})
+	set(RBDOOM3_PRECOMPILED_SOURCES ${RBDOOM3_SOURCES})
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${TIMIDITY_SOURCES} ${JPEG_SOURCES} ${ZLIB_SOURCES})
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/libs/zlib/minizip/ioapi.c)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/DXTDecoder.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/DXTEncoder.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/DXT/DXTEncoder_SSE2.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/dynamicshadowvolume/DynamicShadowVolume.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/prelightshadowvolume/PreLightShadowVolume.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/staticshadowvolume/StaticShadowVolume.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/jobs/ShadowShared.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/renderer/RenderLog.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../doomclassic/doom/i_sound_stub.cpp)
+	list(REMOVE_ITEM RBDOOM3_PRECOMPILED_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../doomclassic/doom/i_sound_win32.cpp)
+	
+	foreach( src_file ${RBDOOM3_PRECOMPILED_SOURCES} )
+		#message(STATUS "/Yuprecompiled.h for ${src_file}")
+        set_source_files_properties(
+            ${src_file}
+            PROPERTIES
+            COMPILE_FLAGS "/Yuprecompiled.h"
+            )
+    endforeach()
+	
+	set_source_files_properties(framework/precompiled.cpp
+        PROPERTIES
+        COMPILE_FLAGS "/Ycprecompiled.h"
+        )
+	
+	list(APPEND RBDOOM3_SOURCES ${WIN32_RESOURCES})
+	
+	add_executable(RBDoom3BFG WIN32 ${RBDOOM3_INCLUDES} ${RBDOOM3_SOURCES})
 		
 	#add_custom_command(TARGET RBDoom3BFG
     #               PRE_BUILD
@@ -1061,6 +1149,16 @@ if(MSVC)
 		winmm
 		wsock32.lib
 		)
+		
+	#CMAKE_BINARY_DIR
+	# if(CMAKE_CL_64)
+		# install(TARGETS RBDoom3BFG
+            # RUNTIME DESTINATION ../bin/win64)
+	# else()
+		# install(TARGETS RBDoom3BFG
+            # RUNTIME DESTINATION ../bin/win32)
+	# endif()
+	
 else()
 
 	list(APPEND RBDOOM3_SOURCES
