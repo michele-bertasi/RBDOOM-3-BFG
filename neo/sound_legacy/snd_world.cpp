@@ -27,7 +27,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 #pragma hdrstop
 
 #include "snd_local.h"
@@ -728,6 +728,9 @@ void idSoundWorldLocal::AVIClose()
 			fpa[i] = NULL;
 		}
 	}
+	
+	// TODO
+#if 0
 	if( soundSystemLocal.snd_audio_hw->GetNumberOfSpeakers() == 2 )
 	{
 		// convert it to a wave file
@@ -757,14 +760,16 @@ void idSoundWorldLocal::AVIClose()
 		
 		int numSamples = rL->Length() / 2;
 		mminfo_t	info;
-		pcmwaveformat_t format;
+		idWaveFile::WriteHeaderDirect( ( rL->Length() * 2 ) - 8 + 4 + 16 + 8 + 8, wO );
 		
+		/*
 		info.ckid = fourcc_riff;
 		info.fccType = mmioFOURCC( 'W', 'A', 'V', 'E' );
 		info.cksize = ( rL->Length() * 2 ) - 8 + 4 + 16 + 8 + 8;
 		info.dwDataOffset = 12;
 		
 		wO->Write( &info, 12 );
+		*/
 		
 		info.ckid = mmioFOURCC( 'f', 'm', 't', ' ' );
 		info.cksize = 16;
@@ -801,6 +806,7 @@ void idSoundWorldLocal::AVIClose()
 		fileSystem->RemoveFile( aviDemoPath + "channel_right.raw" );
 		fileSystem->RemoveFile( aviDemoPath + "channel_left.raw" );
 	}
+#endif
 	
 	soundSystemLocal.SetMute( false );
 }
@@ -1876,7 +1882,7 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal* sound, idSo
 	}
 	
 	// stereo samples are always omni
-	if( sample->objectInfo.nChannels == 2 )
+	if( sample->format.basic.numChannels == 2 )
 	{
 		omni = true;
 	}
@@ -2129,7 +2135,7 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal* sound, idSo
 			
 			slow.AttachSoundChannel( chan );
 			
-			if( sample->objectInfo.nChannels == 2 )
+			if( sample->format.basic.numChannels == 2 )
 			{
 				// need to add a stereo path, but very few samples go through this
 				memset( alignedInputSamples, 0, sizeof( alignedInputSamples[0] ) * MIXBUFFER_SAMPLES * 2 );
@@ -2146,7 +2152,7 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal* sound, idSo
 			sound->ResetSlowChannel( chan );
 			
 			// if we are getting a stereo sample adjust accordingly
-			if( sample->objectInfo.nChannels == 2 )
+			if( sample->format.basic.numChannels == 2 )
 			{
 				// we should probably check to make sure any looping is also to a stereo sample...
 				chan->GatherChannelSamples( offset * 2, MIXBUFFER_SAMPLES * 2, alignedInputSamples );
@@ -2221,7 +2227,7 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal* sound, idSo
 		
 		if( numSpeakers == 6 )
 		{
-			if( sample->objectInfo.nChannels == 1 )
+			if( sample->format.basic.numChannels == 1 )
 			{
 				SIMDProcessor->MixSoundSixSpeakerMono( finalMixBuffer, alignedInputSamples, MIXBUFFER_SAMPLES, chan->lastV, ears );
 			}
@@ -2232,7 +2238,7 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal* sound, idSo
 		}
 		else
 		{
-			if( sample->objectInfo.nChannels == 1 )
+			if( sample->format.basic.numChannels == 1 )
 			{
 				SIMDProcessor->MixSoundTwoSpeakerMono( finalMixBuffer, alignedInputSamples, MIXBUFFER_SAMPLES, chan->lastV, ears );
 			}

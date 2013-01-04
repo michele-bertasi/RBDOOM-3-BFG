@@ -28,7 +28,7 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 #pragma hdrstop
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 
 #include "snd_local.h"
 
@@ -454,6 +454,7 @@ bool idSoundShader::CheckShakesAndOgg() const
 	}
 	*/
 	
+	/*
 	for( int i = 0; i < entries.Num(); i++ )
 	{
 		if( entries[ i ]->objectInfo.wFormatTag == WAVE_FORMAT_TAG_OGG )
@@ -463,6 +464,8 @@ bool idSoundShader::CheckShakesAndOgg() const
 			ret = true;
 		}
 	}
+	*/
+	
 	return ret;
 }
 

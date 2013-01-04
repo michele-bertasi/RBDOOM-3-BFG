@@ -26,7 +26,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 #pragma hdrstop
 
 #include "snd_local.h"
@@ -321,7 +321,7 @@ public:
 	
 	void					Clear();
 	int						DecodePCM( idSoundSample* sample, int sampleOffset44k, int sampleCount44k, float* dest );
-	int						DecodeOGG( idSoundSample* sample, int sampleOffset44k, int sampleCount44k, float* dest );
+	//int					DecodeOGG( idSoundSample* sample, int sampleOffset44k, int sampleCount44k, float* dest );
 	
 private:
 	bool					failed;				// set if decoding failed
@@ -411,7 +411,7 @@ idSampleDecoderLocal::Clear
 void idSampleDecoderLocal::Clear()
 {
 	failed = false;
-	lastFormat = WAVE_FORMAT_TAG_PCM;
+	lastFormat = idWaveFile::FORMAT_PCM;
 	lastSample = NULL;
 	lastSampleOffset = 0;
 	lastDecodeTime = 0;
@@ -428,16 +428,18 @@ void idSampleDecoderLocal::ClearDecoder()
 	
 	switch( lastFormat )
 	{
-		case WAVE_FORMAT_TAG_PCM:
+		case idWaveFile::FORMAT_PCM:
 		{
 			break;
 		}
+		/*
 		case WAVE_FORMAT_TAG_OGG:
 		{
 			ov_clear( &ogg );
 			memset( &ogg, 0, sizeof( ogg ) );
 			break;
 		}
+		*/
 	}
 	
 	Clear();
@@ -474,7 +476,7 @@ void idSampleDecoderLocal::Decode( idSoundSample* sample, int sampleOffset44k, i
 {
 	int readSamples44k;
 	
-	if( sample->objectInfo.wFormatTag != lastFormat || sample != lastSample )
+	if( sample->format.basic.formatTag != lastFormat || sample != lastSample )
 	{
 		ClearDecoder();
 	}
@@ -490,18 +492,27 @@ void idSampleDecoderLocal::Decode( idSoundSample* sample, int sampleOffset44k, i
 	// samples can be decoded both from the sound thread and the main thread for shakes
 	//Sys_EnterCriticalSection( CRITICAL_SECTION_ONE );
 	
-	switch( sample->objectInfo.wFormatTag )
+	switch( sample->format.basic.formatTag )
 	{
-		case WAVE_FORMAT_TAG_PCM:
+		case idWaveFile::FORMAT_PCM:
 		{
 			readSamples44k = DecodePCM( sample, sampleOffset44k, sampleCount44k, dest );
 			break;
 		}
+		
+		case idWaveFile::FORMAT_ADPCM:
+		{
+			//readSamples44k = DecodeADPCM( sample, sampleOffset44k, sampleCount44k, dest );
+			assert( false );
+			break;
+		}
+		/*
 		case WAVE_FORMAT_TAG_OGG:
 		{
 			readSamples44k = DecodeOGG( sample, sampleOffset44k, sampleCount44k, dest );
 			break;
 		}
+		*/
 		default:
 		{
 			readSamples44k = 0;
@@ -527,10 +538,10 @@ int idSampleDecoderLocal::DecodePCM( idSoundSample* sample, int sampleOffset44k,
 	const byte* first;
 	int pos, size, readSamples;
 	
-	lastFormat = WAVE_FORMAT_TAG_PCM;
+	lastFormat = idWaveFile::FORMAT_PCM;
 	lastSample = sample;
 	
-	int shift = 22050 / sample->objectInfo.nSamplesPerSec;
+	int shift = 22050 / sample->format.basic.samplesPerSec;
 	int sampleOffset = sampleOffset44k >> shift;
 	int sampleCount = sampleCount44k >> shift;
 	
@@ -557,7 +568,7 @@ int idSampleDecoderLocal::DecodePCM( idSoundSample* sample, int sampleOffset44k,
 	}
 	
 	// duplicate samples for 44kHz output
-	SIMDProcessor->UpSamplePCMTo44kHz( dest, ( const short* )( first + pos ), readSamples, sample->objectInfo.nSamplesPerSec, sample->objectInfo.nChannels );
+	SIMDProcessor->UpSamplePCMTo44kHz( dest, ( const short* )( first + pos ), readSamples, sample->format.basic.samplesPerSec, sample->format.basic.numChannels );
 	
 	return ( readSamples << shift );
 }
@@ -571,11 +582,11 @@ idSampleDecoderLocal::DecodeOGG
 int idSampleDecoderLocal::DecodeOGG( idSoundSample* sample, int sampleOffset44k, int sampleCount44k, float* dest )
 {
 	int readSamples, totalSamples;
-	
+
 	int shift = 22050 / sample->objectInfo.nSamplesPerSec;
 	int sampleOffset = sampleOffset44k >> shift;
 	int sampleCount = sampleCount44k >> shift;
-	
+
 	// open OGG file if not yet opened
 	if( lastSample == NULL )
 	{
@@ -599,7 +610,7 @@ int idSampleDecoderLocal::DecodeOGG( idSoundSample* sample, int sampleOffset44k,
 		lastFormat = WAVE_FORMAT_TAG_OGG;
 		lastSample = sample;
 	}
-	
+
 	// seek to the right offset if necessary
 	if( sampleOffset != lastSampleOffset )
 	{
@@ -609,9 +620,9 @@ int idSampleDecoderLocal::DecodeOGG( idSoundSample* sample, int sampleOffset44k,
 			return 0;
 		}
 	}
-	
+
 	lastSampleOffset = sampleOffset;
-	
+
 	// decode OGG samples
 	totalSamples = sampleCount;
 	readSamples = 0;
@@ -630,16 +641,16 @@ int idSampleDecoderLocal::DecodeOGG( idSoundSample* sample, int sampleOffset44k,
 			return 0;
 		}
 		ret *= sample->objectInfo.nChannels;
-		
+
 		SIMDProcessor->UpSampleOGGTo44kHz( dest + ( readSamples << shift ), samples, ret, sample->objectInfo.nSamplesPerSec, sample->objectInfo.nChannels );
-		
+
 		readSamples += ret;
 		totalSamples -= ret;
 	}
 	while( totalSamples > 0 );
-	
+
 	lastSampleOffset += readSamples;
-	
+
 	return ( readSamples << shift );
 }
 */

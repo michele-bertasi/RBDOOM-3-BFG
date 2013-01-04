@@ -104,6 +104,11 @@ class idSoundWorldLocal;
 ===================================================================================
 */
 
+
+#if 1
+#include "WaveFile.h"
+#else
+
 #ifdef WIN32
 #pragma pack(1)
 #endif
@@ -196,30 +201,19 @@ typedef mminfo_s mminfo_t;
 #pragma pack (pop)
 #endif
 
-/*
-===================================================================================
-
-idWaveFile
-
-===================================================================================
-*/
-
-#if 1
-#include "WaveFile.h"
-#else
 class idWaveFile
 {
 public:
 	idWaveFile();
 	~idWaveFile();
-	
+
 	int				Open( const char* strFileName, waveformatex_t* pwfx = NULL );
 	int				OpenFromMemory( short* pbData, int ulDataSize, waveformatextensible_t* pwfx );
 	int				Read( byte* pBuffer, int dwSizeToRead, int* pdwSizeRead );
 	int				Seek( int offset );
 	int				Close();
 	int				ResetFile();
-	
+
 	ID_TIME_T		Timestamp()
 	{
 		return mhmmio->Timestamp();
@@ -233,9 +227,9 @@ public:
 	{
 		return mMemSize;
 	}
-	
+
 	waveformatextensible_t	mpwfx;        // Pointer to waveformatex structure
-	
+
 private:
 	idFile* 		mhmmio;			// I/O handle for the WAVE
 	mminfo_t		mck;			// Multimedia RIFF chunk
@@ -244,18 +238,18 @@ private:
 	dword			mMemSize;		// size of the wave data in memory
 	dword			mseekBase;
 	ID_TIME_T			mfileTime;
-	
+
 	bool			mbIsReadingFromMemory;
 	short* 			mpbData;
 	short* 			mpbDataCur;
 	dword			mulDataSize;
-	
+
 	void* 			ogg;			// only !NULL when !s_realTimeDecoding
 	bool			isOgg;
-	
+
 private:
 	int				ReadMMIO();
-	
+
 	int				OpenOGG( const char* strFileName, waveformatex_t* pwfx = NULL );
 	int				ReadOGG( byte* pBuffer, int dwSizeToRead, int* pdwSizeRead );
 	int				CloseOGG();
@@ -1004,12 +998,12 @@ public:
 		int bufferSize;
 		int numSamples;
 	};
-
+	
 	idStr					name;						// name of the sample file
 	
 	ID_TIME_T		 		timestamp;					// the most recent of all images used in creation, for reloadImages command
 	bool					loaded;
-
+	
 	uint32					lastPlayedTime;
 	
 	int						totalBufferSize;	// total size of all the buffers
@@ -1022,7 +1016,7 @@ public:
 	
 	idList<byte, TAG_AMPLITUDE> amplitude;
 	
-	waveformatex_t			objectInfo;					// what are we caching
+//	waveformatex_t			objectInfo;					// what are we caching
 	int						objectSize;					// size of waveform in samples, excludes the header
 	int						objectMemSize;				// object size in memory
 	byte* 					nonCacheData;				// if it's not cached
@@ -1043,7 +1037,7 @@ public:
 	{
 		return name;
 	}
-
+	
 	int						LengthIn44kHzSamples() const;
 	ID_TIME_T		 		GetNewTimeStamp() const;
 	void					MakeDefault();				// turns it into a beep

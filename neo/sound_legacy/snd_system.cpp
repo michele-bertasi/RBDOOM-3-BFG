@@ -27,7 +27,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 #pragma hdrstop
 
 #include "snd_local.h"
@@ -156,21 +156,23 @@ void ListSounds_f( const idCmdArgs& args )
 			continue;
 		}
 		
-		const waveformatex_t& info = sample->objectInfo;
+		const idWaveFile::waveFmt_t& info = sample->format;
 		
-		const char* stereo = ( info.nChannels == 2 ? "ST" : "  " );
-		const char* format = ( info.wFormatTag == WAVE_FORMAT_TAG_OGG ) ? "OGG" : "WAV";
+		const char* stereo = ( info.basic.numChannels == 2 ? "ST" : "  " );
+		const char* format = ( info.basic.formatTag == idWaveFile::FORMAT_ADPCM ) ? "ADPCM" : "PCM";
 		const char* defaulted = ( sample->defaultSound ? "(DEFAULTED)" : sample->purged ? "(PURGED)" : "" );
 		
-		common->Printf( "%s %dkHz %6dms %5dkB %4s %s%s\n", stereo, sample->objectInfo.nSamplesPerSec / 1000,
+		common->Printf( "%s %dkHz %6dms %5dkB %4s %s%s\n", stereo, sample->format.basic.samplesPerSec / 1000,
 						soundSystemLocal.SamplesToMilliseconds( sample->LengthIn44kHzSamples() ),
 						sample->objectMemSize >> 10, format, sample->name.c_str(), defaulted );
 						
 		if( !sample->purged )
 		{
 			totalSamples += sample->objectSize;
-			if( info.wFormatTag != WAVE_FORMAT_TAG_OGG )
-				totalPCMMemory += sample->objectMemSize;
+			
+			//if( info.wFormatTag != WAVE_FORMAT_TAG_OGG )
+			totalPCMMemory += sample->objectMemSize;
+			
 			if( !sample->hardwareBuffer )
 				totalMemory += sample->objectMemSize;
 		}
@@ -222,7 +224,7 @@ void ListSoundDecoders_f( const idCmdArgs& args )
 				continue;
 			}
 			
-			const char* format = ( chan->leadinSample->objectInfo.wFormatTag == WAVE_FORMAT_TAG_OGG ) ? "OGG" : "WAV";
+			const char* format = ( chan->leadinSample->format.basic.formatTag == idWaveFile::FORMAT_ADPCM ) ? "ADPCM" : "WAV";
 			common->Printf( "%3d waiting %s: %s\n", numWaitingDecoders, format, chan->leadinSample->name.c_str() );
 			
 			numWaitingDecoders++;
@@ -255,10 +257,10 @@ void ListSoundDecoders_f( const idCmdArgs& args )
 				continue;
 			}
 			
-			const char* format = ( sample->objectInfo.wFormatTag == WAVE_FORMAT_TAG_OGG ) ? "OGG" : "WAV";
+			const char* format = ( sample->format.basic.formatTag == idWaveFile::FORMAT_ADPCM ) ? "ADPCM" : "WAV";
 			
 			int localTime = soundSystemLocal.GetCurrent44kHzTime() - chan->trigger44kHzTime;
-			int sampleTime = sample->LengthIn44kHzSamples() * sample->objectInfo.nChannels;
+			int sampleTime = sample->LengthIn44kHzSamples() * sample->format.basic.numChannels;
 			int percent;
 			if( localTime > sampleTime )
 			{
@@ -1256,9 +1258,9 @@ int idSoundSystemLocal::GetSoundDecoderInfo( int index, soundDecoderInfo_t& deco
 			}
 			
 			decoderInfo.name = sample->name;
-			decoderInfo.format = ( sample->objectInfo.wFormatTag == WAVE_FORMAT_TAG_OGG ) ? "OGG" : "WAV";
-			decoderInfo.numChannels = sample->objectInfo.nChannels;
-			decoderInfo.numSamplesPerSecond = sample->objectInfo.nSamplesPerSec;
+			decoderInfo.format = ( sample->format.basic.formatTag == idWaveFile::FORMAT_ADPCM ) ? "ADPCM" : "WAV";
+			decoderInfo.numChannels = sample->format.basic.numChannels;
+			decoderInfo.numSamplesPerSecond = sample->format.basic.samplesPerSec;
 			decoderInfo.num44kHzSamples = sample->LengthIn44kHzSamples();
 			decoderInfo.numBytes = sample->objectMemSize;
 			decoderInfo.looping = ( chan->parms.soundShaderFlags & SSF_LOOPING ) != 0;

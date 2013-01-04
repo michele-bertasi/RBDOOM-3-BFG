@@ -27,7 +27,7 @@ If you have questions concerning this license or the applicable additional terms
 ===========================================================================
 */
 
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 #pragma hdrstop
 
 #include "snd_local.h"
@@ -942,7 +942,7 @@ int idSoundEmitterLocal::StartSound( const idSoundShader* shader, const s_channe
 	// return length of sound in milliseconds
 	int length = chan->leadinSample->LengthIn44kHzSamples();
 	
-	if( chan->leadinSample->objectInfo.nChannels == 2 )
+	if( chan->leadinSample->format.basic.numChannels == 2 )
 	{
 		length /= 2;	// stereo samples
 	}

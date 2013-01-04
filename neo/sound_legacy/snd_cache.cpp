@@ -26,7 +26,7 @@ If you have questions concerning this license or the applicable additional terms
 
 ===========================================================================
 */
-#include "../idlib/precompiled.h"
+#include "precompiled.h"
 #pragma hdrstop
 
 #include "snd_local.h"
@@ -94,7 +94,7 @@ idSoundSample* idSoundCache::FindSound( const idStr& filename, bool loadOnDemand
 	//canonical.ToLower();
 	//canonical.BackSlashesToSlashes();
 	//canonical.StripFileExtension();
-
+	
 	idStrStatic< MAX_OSPATH > fname;
 	
 	fname = filename;
@@ -340,8 +340,8 @@ idSoundSample::idSoundSample()
 {
 	timestamp = FILE_NOT_FOUND_TIMESTAMP;
 	loaded = false;
-
-	memset( &objectInfo, 0, sizeof( waveformatex_t ) );
+	
+	memset( &format, 0, sizeof( format ) );
 	objectSize = 0;
 	objectMemSize = 0;
 	nonCacheData = NULL;
@@ -377,11 +377,11 @@ idSoundSample::LengthIn44kHzSamples
 int idSoundSample::LengthIn44kHzSamples() const
 {
 	// objectSize is samples
-	if( objectInfo.nSamplesPerSec == 11025 )
+	if( format.basic.samplesPerSec == 11025 )
 	{
 		return objectSize << 2;
 	}
-	else if( objectInfo.nSamplesPerSec == 22050 )
+	else if( format.basic.samplesPerSec == 22050 )
 	{
 		return objectSize << 1;
 	}
@@ -402,11 +402,11 @@ void idSoundSample::MakeDefault()
 	float	v;
 	int		sample;
 	
-	memset( &objectInfo, 0, sizeof( objectInfo ) );
+	memset( &format, 0, sizeof( format ) );
 	
-	objectInfo.nChannels = 1;
-	objectInfo.wBitsPerSample = 16;
-	objectInfo.nSamplesPerSec = 44100;
+	format.basic.numChannels = 1;
+	format.basic.bitsPerSample = 16;
+	format.basic.samplesPerSec = 44100;
 	
 	objectSize = MIXBUFFER_SAMPLES * 2;
 	objectMemSize = objectSize * sizeof( short );
@@ -462,14 +462,16 @@ void idSoundSample::CheckForDownSample()
 	{
 		return;
 	}
-	if( objectInfo.wFormatTag != WAVE_FORMAT_TAG_PCM || objectInfo.nSamplesPerSec != 44100 )
+	
+	if( format.basic.formatTag != idWaveFile::FORMAT_PCM || format.basic.samplesPerSec != 44100 )
 	{
 		return;
 	}
+	
 	int shortSamples = objectSize >> 1;
 	short* converted = ( short* )soundCacheAllocator.Alloc( shortSamples * sizeof( short ) );
 	
-	if( objectInfo.nChannels == 1 )
+	if( format.basic.numChannels == 1 )
 	{
 		for( int i = 0; i < shortSamples; i++ )
 		{
@@ -484,12 +486,13 @@ void idSoundSample::CheckForDownSample()
 			converted[i + 1] = ( ( short* )nonCacheData )[i * 2 + 1];
 		}
 	}
+	
 	soundCacheAllocator.Free( nonCacheData );
 	nonCacheData = ( byte* )converted;
 	objectSize >>= 1;
 	objectMemSize >>= 1;
-	objectInfo.nAvgBytesPerSec >>= 1;
-	objectInfo.nSamplesPerSec >>= 1;
+	format.basic.avgBytesPerSec >>= 1;
+	format.basic.samplesPerSec >>= 1;
 }
 
 /*
@@ -518,6 +521,7 @@ idSoundSample::LoadGeneratedSound
 */
 bool idSoundSample::LoadGeneratedSample( const idStr& filename )
 {
+#if 0
 	idFileLocal fileIn( fileSystem->OpenFileReadMemory( filename ) );
 	if( fileIn != NULL )
 	{
@@ -546,6 +550,7 @@ bool idSoundSample::LoadGeneratedSample( const idStr& filename )
 		}
 		return true;
 	}
+#endif
 	return false;
 }
 
@@ -559,7 +564,7 @@ Loads based on name, possibly doing a MakeDefault if necessary
 void idSoundSample::Load()
 {
 	extern idCVar sys_lang;
-
+	
 	defaultSound = false;
 	purged = false;
 	hardwareBuffer = false;
@@ -569,7 +574,7 @@ void idSoundSample::Load()
 		MakeDefault();
 		return;
 	}
-
+	
 	/*
 	timestamp = GetNewTimeStamp();
 	
@@ -580,7 +585,7 @@ void idSoundSample::Load()
 		return;
 	}
 	*/
-
+	
 	loaded = false;
 	
 	for( int i = 0; i < 2; i++ )
@@ -619,7 +624,7 @@ void idSoundSample::Load()
 			{
 				fileSystem->AddSamplePreload( GetName() );
 				WriteAllSamples( GetName() );
-				
+			
 				if( sampleName.Find( "/vo/" ) >= 0 )
 				{
 					for( int i = 0; i < Sys_NumLangs(); i++ )
@@ -639,7 +644,7 @@ void idSoundSample::Load()
 			return;
 		}
 	}
-
+	
 	if( !loaded )
 	{
 		// make it default if everything else fails
@@ -685,7 +690,7 @@ bool idSoundSample::LoadWav( const idStr& filename )
 		MakeDefault();
 		return false;
 	}
-
+	
 	timestamp = fh.Timestamp();
 	
 	objectInfo = info;
@@ -860,7 +865,7 @@ bool idSoundSample::LoadWav( const idStr& filename )
 
 
 	fh.Close();
-
+	
 	return true;
 #else
 	return false;
