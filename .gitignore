@@ -2,6 +2,11 @@ build*
 eclipse*
 neo/ipch
 
+qtcreator-build/
+CMakeLists.txt.user
+precompiled.h.gch
+
+
 Doom3BFG.exe
 base/_common.crc
 base/_common.resources
