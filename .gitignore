@@ -5,6 +5,7 @@ neo/ipch
 qtcreator-build/
 CMakeLists.txt.user
 precompiled.h.gch
+ffmpeg/
 
 
 Doom3BFG.exe
