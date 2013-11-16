@@ -50,10 +50,34 @@ extern idCVar s_noSound;
 
 namespace { // anon
 
+// utility
+
+struct Buffer
+{
+    Buffer()
+        : data(NULL), len(0), curr(0)
+    { }
+
+    unsigned char* data;
+    int len;
+    int curr;
+};
+
+static int readFunction(void* opaque, uint8_t* buf, int buf_size)
+{
+    Buffer* me = reinterpret_cast<Buffer*>(opaque);
+    int to_copy = std::min(me->len - me->curr, buf_size);
+    memcpy(buf, me->data + me->curr, to_copy);
+    me->curr += to_copy;
+}
+
+
 // idCinematic implementation class
 class idCinematicImpl : public idCinematic
 {
 public:
+    idCinematicImpl();
+
     // frees all allocated memory
     virtual ~idCinematicImpl();
 
@@ -78,42 +102,66 @@ public:
     virtual void ExportToTGA( bool skipExisting = true );
 
     virtual float GetFrameRate() const;
+
+private:
+    bool closed;
+    bool looping;
+
+    Buffer file_contents;
+    Buffer read_buf;
+    AVPacket avpkt;
+    AVIOContext* avctx;
+    AVFormatContext* ic;
 };
 
 
+// implementation
+
+idCinematicImpl::idCinematicImpl()
+    : closed(true), looping(false), ic(NULL)
+{ }
+
 idCinematicImpl::~idCinematicImpl( )
 {
-	Close();
+    Close();
 }
 
-/*
-==============
-idCinematic::InitFromFile
-==============
-*/
 bool idCinematicImpl::InitFromFile( const char* qpath, bool looping )
 {
-	return false;
+    this->looping = looping;
+
+    // load the file in memory
+    file_contents.len = fileSystem->ReadFile(qpath, (void**)&file_contents.data);
+    if (file_contents.len < 0)
+        return false;
+
+    closed = false;
+
+    // init the codec
+    av_init_packet(&avpkt);
+    ic = avformat_alloc_context();
+
+    // see http://stackoverflow.com/questions/9604633/reading-a-file-located-in-memory-with-libavformat
+    read_buf.data = (unsigned char*)av_malloc(4 * 1024);
+    read_buf.len = 4 * 1024;
+    avctx = avio_alloc_context(read_buf.data, read_buf.len, 0, (void*)&file_contents, readFunction, NULL, NULL);
+    ic->pb = avctx;
+    if (avformat_open_input(&ic, "", NULL, NULL) < 0)
+        return false;
+    if (avformat_find_stream_info(ic, NULL) < 0)
+        return false;
+    if (ic->nb_streams != 1)
+        return false;
 }
 
-/*
-==============
-idCinematic::AnimationLength
-==============
-*/
 int idCinematicImpl::AnimationLength()
 {
-	return 0;
+    return 0;
 }
 
-/*
-==============
-idCinematic::GetStartTime
-==============
-*/
 int idCinematicImpl::GetStartTime()
 {
-	return -1;
+    return -1;
 }
 
 void idCinematicImpl::ResetTime( int milliseconds )
@@ -122,9 +170,9 @@ void idCinematicImpl::ResetTime( int milliseconds )
 
 cinData_t idCinematicImpl::ImageForTime( int milliseconds )
 {
-	cinData_t c;
-	memset( &c, 0, sizeof( c ) );
-	return c;
+    cinData_t c;
+    memset( &c, 0, sizeof( c ) );
+    return c;
 }
 
 void idCinematicImpl::ExportToTGA( bool skipExisting )
@@ -133,14 +181,30 @@ void idCinematicImpl::ExportToTGA( bool skipExisting )
 
 float idCinematicImpl::GetFrameRate() const
 {
-	return 30.0f;
+    return 30.0f;
 }
 
 void idCinematicImpl::Close()
 {
+    if (closed) return;
+
+    // cleanup the file
+    fileSystem->FreeFile(file_contents.data);
+    file_contents.data = NULL;
+    file_contents.len = 0;
+
+    // cleanup ffmpeg stuff
+    avformat_free_context(ic);
+    av_free(avctx);
+    av_free(read_buf.data);
+
+    closed = true;
 }
 
 } // anon namespace
+
+
+
 
 //===========================================
 
@@ -170,7 +234,7 @@ idCinematic::Alloc
 */
 idCinematic* idCinematic::Alloc()
 {
-	return new idCinematicImpl;
+    return new idCinematicImpl;
 }
 
 /*
@@ -180,7 +244,7 @@ idCinematic::~idCinematic
 */
 idCinematic::~idCinematic( )
 {
-	Close();
+    Close();
 }
 
 /*
@@ -190,7 +254,7 @@ idCinematic::InitFromFile
 */
 bool idCinematic::InitFromFile( const char* qpath, bool looping )
 {
-	return false;
+    return false;
 }
 
 /*
@@ -200,7 +264,7 @@ idCinematic::AnimationLength
 */
 int idCinematic::AnimationLength()
 {
-	return 0;
+    return 0;
 }
 
 /*
@@ -210,7 +274,7 @@ idCinematic::GetStartTime
 */
 int idCinematic::GetStartTime()
 {
-	return -1;
+    return -1;
 }
 
 /*
@@ -229,9 +293,9 @@ idCinematic::ImageForTime
 */
 cinData_t idCinematic::ImageForTime( int milliseconds )
 {
-	cinData_t c;
-	memset( &c, 0, sizeof( c ) );
-	return c;
+    cinData_t c;
+    memset( &c, 0, sizeof( c ) );
+    return c;
 }
 
 /*
@@ -250,7 +314,7 @@ idCinematic::GetFrameRate
 */
 float idCinematic::GetFrameRate() const
 {
-	return 30.0f;
+    return 30.0f;
 }
 
 /*
@@ -269,18 +333,18 @@ idSndWindow::InitFromFile
 */
 bool idSndWindow::InitFromFile( const char* qpath, bool looping )
 {
-	idStr fname = qpath;
-	
-	fname.ToLower();
-	if( !fname.Icmp( "waveform" ) )
-	{
-		showWaveform = true;
-	}
-	else
-	{
-		showWaveform = false;
-	}
-	return true;
+    idStr fname = qpath;
+
+    fname.ToLower();
+    if( !fname.Icmp( "waveform" ) )
+    {
+        showWaveform = true;
+    }
+    else
+    {
+        showWaveform = false;
+    }
+    return true;
 }
 
 /*
@@ -290,7 +354,7 @@ idSndWindow::ImageForTime
 */
 cinData_t idSndWindow::ImageForTime( int milliseconds )
 {
-	return soundSystem->ImageForTime( milliseconds, showWaveform );
+    return soundSystem->ImageForTime( milliseconds, showWaveform );
 }
 
 /*
@@ -300,5 +364,5 @@ idSndWindow::AnimationLength
 */
 int idSndWindow::AnimationLength()
 {
-	return -1;
+    return -1;
 }
