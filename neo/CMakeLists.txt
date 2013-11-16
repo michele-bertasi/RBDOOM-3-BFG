@@ -1444,3 +1444,6 @@ else()
 	endif()
     
 endif()
+
+#find_package(FFMPEG)
+add_subdirectory(test)

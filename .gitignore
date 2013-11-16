@@ -1,6 +1,7 @@
 build*
 eclipse*
 neo/ipch
+*.swp
 
 qtcreator-build/
 CMakeLists.txt.user
