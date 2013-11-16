@@ -24,7 +24,7 @@ set(FFMPEG_LIBRARIES_DIRS
     ${FFMPEG_DIR}/libavcodec
     ${FFMPEG_DIR}/libavutil
     )
-set(FFMPEG_LIBRARIES avformat avcodec avutil z)
+set(FFMPEG_LIBRARIES avformat avcodec avutil z m)
 
 # FIXME: This would be the best way. For now let's hardcode all
 #

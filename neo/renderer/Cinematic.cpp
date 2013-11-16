@@ -31,7 +31,15 @@ If you have questions concerning this license or the applicable additional terms
 
 // ffmpeg includes
 extern "C" {
-#	include <libavformat/avformat.h>
+#ifndef INT64_C
+#	define INT64_C(c) (c ## LL)
+#	define UINT64_C(c) (c ## ULL)
+#endif
+#ifndef __STDC_CONSTANT_MACROS
+#	define __STDC_CONSTANT_MACROS
+#endif
+
+#include <libavformat/avformat.h>
 } // extern "C"
 
 
@@ -43,36 +51,94 @@ extern idCVar s_noSound;
 namespace { // anon
 
 // idCinematic implementation class
-class idCinematicImpl
+class idCinematicImpl : public idCinematic
 {
 public:
     // frees all allocated memory
-    virtual				~idCinematicImpl();
+    virtual ~idCinematicImpl();
 
     // returns false if it failed to load
-    virtual bool		InitFromFile( const char* qpath, bool looping );
+    virtual bool InitFromFile( const char* qpath, bool looping );
 
     // returns the length of the animation in milliseconds
-    virtual int			AnimationLength();
+    virtual int	AnimationLength();
 
     // the pointers in cinData_t will remain valid until the next UpdateForTime() call
-    virtual cinData_t	ImageForTime( int milliseconds );
+    virtual cinData_t ImageForTime( int milliseconds );
 
     // closes the file and frees all allocated memory
-    virtual void		Close();
+    virtual void Close();
 
     // sets the cinematic to start at that time (can be in the past)
-    virtual void		ResetTime( int time );
+    virtual void ResetTime( int time );
 
     // gets the time the cinematic started
-    virtual int			GetStartTime();
+    virtual int GetStartTime();
 
-    virtual void		ExportToTGA( bool skipExisting = true );
+    virtual void ExportToTGA( bool skipExisting = true );
 
-    virtual float		GetFrameRate() const;
+    virtual float GetFrameRate() const;
 };
 
 
+idCinematicImpl::~idCinematicImpl( )
+{
+	Close();
+}
+
+/*
+==============
+idCinematic::InitFromFile
+==============
+*/
+bool idCinematicImpl::InitFromFile( const char* qpath, bool looping )
+{
+	return false;
+}
+
+/*
+==============
+idCinematic::AnimationLength
+==============
+*/
+int idCinematicImpl::AnimationLength()
+{
+	return 0;
+}
+
+/*
+==============
+idCinematic::GetStartTime
+==============
+*/
+int idCinematicImpl::GetStartTime()
+{
+	return -1;
+}
+
+void idCinematicImpl::ResetTime( int milliseconds )
+{
+}
+
+cinData_t idCinematicImpl::ImageForTime( int milliseconds )
+{
+	cinData_t c;
+	memset( &c, 0, sizeof( c ) );
+	return c;
+}
+
+void idCinematicImpl::ExportToTGA( bool skipExisting )
+{
+}
+
+float idCinematicImpl::GetFrameRate() const
+{
+	return 30.0f;
+}
+
+void idCinematicImpl::Close()
+{
+}
 
 } // anon namespace
 
@@ -104,7 +170,7 @@ idCinematic::Alloc
 */
 idCinematic* idCinematic::Alloc()
 {
-	return new idCinematic;
+	return new idCinematicImpl;
 }
 
 /*
