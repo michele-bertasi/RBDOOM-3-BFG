@@ -1,0 +1,14 @@
+NOTES on DOOM3 BFG
+------------------
+
+On game:
+- To test a bink video display:
+  - hit the '\' to show the console
+  - > testVideo <filename> (e.g. video/intro.bik)
+
+
+Source:
+- Read a file:
+  - include FileSystem.h
+  - filesystem->ReadFile(..)
+  - filesystem->FreeFile(..)

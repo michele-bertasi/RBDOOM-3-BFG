@@ -29,10 +29,52 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 #include "precompiled.h"
 
+// ffmpeg includes
+extern "C" {
+#	include <libavformat/avformat.h>
+} // extern "C"
+
 
 extern idCVar s_noSound;
 
 #include "tr_local.h"
+
+
+namespace { // anon
+
+// idCinematic implementation class
+class idCinematicImpl
+{
+public:
+    // frees all allocated memory
+    virtual				~idCinematicImpl();
+
+    // returns false if it failed to load
+    virtual bool		InitFromFile( const char* qpath, bool looping );
+
+    // returns the length of the animation in milliseconds
+    virtual int			AnimationLength();
+
+    // the pointers in cinData_t will remain valid until the next UpdateForTime() call
+    virtual cinData_t	ImageForTime( int milliseconds );
+
+    // closes the file and frees all allocated memory
+    virtual void		Close();
+
+    // sets the cinematic to start at that time (can be in the past)
+    virtual void		ResetTime( int time );
+
+    // gets the time the cinematic started
+    virtual int			GetStartTime();
+
+    virtual void		ExportToTGA( bool skipExisting = true );
+
+    virtual float		GetFrameRate() const;
+};
+
+
+
+} // anon namespace
 
 //===========================================
 
@@ -43,6 +85,7 @@ idCinematic::InitCinematic
 */
 void idCinematic::InitCinematic( void )
 {
+    av_register_all();
 }
 
 /*

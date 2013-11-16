@@ -15,6 +15,9 @@ option(SDL2
 option(OPENAL
 		"Use OpenAL soft instead of XAudio2" OFF)
 
+option(FFMPEG
+		"Use FFMPEG to render Bink video" ON)
+
 if(UNIX)
 	set(OPENAL TRUE)
 endif()
@@ -1288,7 +1291,12 @@ else()
 	endif()
 	
 	if(UNIX)
-	
+		if(FFMPEG)
+			find_package(FFMPEG)
+			include_directories(${FFMPEG_LIBRARIES_DIRS})
+			link_directories(${FFMPEG_LIBRARIES_DIRS})
+		endif()
+
 		if(SDL2)
 			find_package(SDL2 REQUIRED)
 			include_directories(${SDL2_INCLUDE_DIR})
@@ -1429,6 +1437,7 @@ else()
 			rt
 			${SDLx_LIBRARY}
 			${OPENAL_LIBRARY}
+			${FFMPEG_LIBRARIES}
 			)
 	endif()
 
@@ -1440,10 +1449,10 @@ else()
 			rt
 			${SDLx_LIBRARY}
 			${OPENAL_LIBRARY}
+			${FFMPEG_LIBRARIES}
 			)
 	endif()
     
 endif()
 
-#find_package(FFMPEG)
 add_subdirectory(test)
