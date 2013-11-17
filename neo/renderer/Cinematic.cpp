@@ -72,6 +72,13 @@ int readFunction(void* opaque, uint8_t* buf, int buf_size)
     return to_copy;
 }
 
+cinData_t getDefaultData()
+{
+    cinData_t c;
+    memset( &c, 0, sizeof( c ) );
+    return c;
+}
+
 
 // idCinematic implementation class
 class idCinematicImpl : public idCinematic
@@ -108,6 +115,7 @@ private:
     bool ReadFile(const char* qpath);
     bool InitFfmpeg();
     void InitImages();
+    bool DecodeFrame();
 
     bool closed;
     bool good;
@@ -123,9 +131,10 @@ private:
     AVCodecContext* avctx;
     AVFrame* frame;
 
-//    idImage yImg;
-//    idImage crImg;
-//    idImage cbImg;
+    idImage yImg;
+    idImage crImg;
+    idImage cbImg;
+    cinData_t imgData;
 };
 
 
@@ -135,7 +144,15 @@ idCinematicImpl::idCinematicImpl()
     : closed(true), good(false), looping(false)
     , frame_count(0), start_time(0)
     , avio(NULL), ic(NULL), avctx(NULL), frame(NULL)
-{ }
+    , yImg("yimg"), crImg("crimg"), cbImg("cbImg")
+{
+    imgData.imageWidth = 0;
+    imgData.imageHeight = 0;
+    imgData.imageY = &yImg;
+    imgData.imageCr = &crImg;
+    imgData.imageCb = &cbImg;
+    imgData.status = FMV_EOF;
+}
 
 idCinematicImpl::~idCinematicImpl( )
 {
@@ -180,9 +197,15 @@ void idCinematicImpl::ResetTime( int milliseconds )
 
 cinData_t idCinematicImpl::ImageForTime( int milliseconds )
 {
-    cinData_t c;
-    memset( &c, 0, sizeof( c ) );
-    return c;
+    av_read_frame(ic, &avpkt);
+    if (avpkt.size == 0)
+        return getDefaultData();
+
+    while (avpkt.size > 0)
+        if (!DecodeFrame())
+            return getDefaultData();
+
+    return imgData;
 }
 
 void idCinematicImpl::ExportToTGA( bool skipExisting )
@@ -230,6 +253,7 @@ void idCinematicImpl::Close()
     closed = true;
     good = false;
 }
+
 
 bool idCinematicImpl::ReadFile(const char* qpath)
 {
@@ -281,7 +305,31 @@ bool idCinematicImpl::InitFfmpeg()
 
 void idCinematicImpl::InitImages()
 {
+    imgData.status = FMV_IDLE;
+}
 
+bool idCinematicImpl::DecodeFrame()
+{
+    int len, got_frame;
+    char buf[1024];
+
+    len = avcodec_decode_video2(avctx, frame, &got_frame, &avpkt);
+    if (len < 0)
+        return false;
+
+    if (got_frame)
+    {
+        /* the picture is allocated by the decoder, no need to free it */
+//        pgm_save(frame->data[0], frame->linesize[0],
+//                 avctx->width, avctx->height, buf);
+//        ++frame_count;
+    }
+    if (avpkt.data)
+    {
+        avpkt.size -= len;
+        avpkt.data += len;
+    }
+    return true;
 }
 
 } // anon namespace
