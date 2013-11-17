@@ -105,9 +105,15 @@ public:
     virtual float GetFrameRate() const;
 
 private:
+    bool ReadFile(const char* qpath);
+    bool InitFfmpeg();
+    void InitImages();
+
     bool closed;
+    bool good;
     bool looping;
     unsigned int frame_count;
+    int start_time;
 
     Buffer file_contents;
     Buffer read_buf;
@@ -116,13 +122,18 @@ private:
     AVFormatContext* ic;
     AVCodecContext* avctx;
     AVFrame* frame;
+
+//    idImage yImg;
+//    idImage crImg;
+//    idImage cbImg;
 };
 
 
 // implementation
 
 idCinematicImpl::idCinematicImpl()
-    : closed(true), looping(false), frame_count(0)
+    : closed(true), good(false), looping(false)
+    , frame_count(0), start_time(0)
     , avio(NULL), ic(NULL), avctx(NULL), frame(NULL)
 { }
 
@@ -134,66 +145,37 @@ idCinematicImpl::~idCinematicImpl( )
 bool idCinematicImpl::InitFromFile( const char* qpath, bool looping )
 {
     this->looping = looping;
-
-    // load the file in memory
-    file_contents.len = fileSystem->ReadFile(qpath, (void**)&file_contents.data);
-    if (file_contents.len < 0)
+    if (!ReadFile(qpath))
         return false;
 
     closed = false;
-
-    // init the codec
-    av_init_packet(&avpkt);
-    ic = avformat_alloc_context();
-
-    // see http://stackoverflow.com/questions/9604633/reading-a-file-located-in-memory-with-libavformat
-    read_buf.data = (unsigned char*)av_malloc(4 * 1024);
-    read_buf.len = 4 * 1024;
-    avio = avio_alloc_context(read_buf.data, read_buf.len, 0, (void*)&file_contents, readFunction, NULL, NULL);
-    ic->pb = avio;
-
-    if (avformat_open_input(&ic, "", NULL, NULL) < 0)
-        return false;
-    if (avformat_find_stream_info(ic, NULL) < 0)
-        return false;
-    if (ic->nb_streams != 1) // TODO: Handle audo-video
+    if (!InitFfmpeg())
         return false;
 
-    AVStream* video_st = ic->streams[0];
-    avctx = video_st->codec;
-    AVCodec* codec = avcodec_find_decoder(avctx->codec_id);
-    avctx->codec_id = codec->id;
-
-    if (codec->capabilities & CODEC_CAP_DR1)
-        avctx->flags |= CODEC_FLAG_EMU_EDGE;
-
-    avcodec_get_frame_defaults(frame);
-    av_free_packet(&avpkt);
-
-    if (avcodec_open2(avctx, codec, NULL) < 0)
-        return false;
-
-    frame = avcodec_alloc_frame();
-    if (!frame)
-        return false;
+    InitImages();
 
     frame_count = 0;
+    good = true;
     return true;
 }
 
 int idCinematicImpl::AnimationLength()
 {
     // FIXME: what is the expected value here?
-    return ic->duration;
+    if (!ic || !good)
+        return 0;
+    int duration = ic->duration / 1000;
+    return duration;
 }
 
 int idCinematicImpl::GetStartTime()
 {
-    return -1;
+    return start_time;
 }
 
 void idCinematicImpl::ResetTime( int milliseconds )
 {
+    start_time = milliseconds;
 }
 
 cinData_t idCinematicImpl::ImageForTime( int milliseconds )
@@ -209,9 +191,12 @@ void idCinematicImpl::ExportToTGA( bool skipExisting )
 
 float idCinematicImpl::GetFrameRate() const
 {
+    if (!good || !ic || !ic->streams)
+        return 0.0f;
+
     AVStream* video_st = ic->streams[0];
     AVRational fr = video_st->avg_frame_rate;
-    return (float)fr.num / fr.den;
+    return fr.num / (float)fr.den;
 }
 
 void idCinematicImpl::Close()
@@ -243,6 +228,60 @@ void idCinematicImpl::Close()
     }
 
     closed = true;
+    good = false;
+}
+
+bool idCinematicImpl::ReadFile(const char* qpath)
+{
+    // load the file in memory
+    file_contents.len = fileSystem->ReadFile(qpath, (void**)&file_contents.data);
+    return file_contents.len >= 0;
+}
+
+bool idCinematicImpl::InitFfmpeg()
+{
+    // init the codec
+    av_init_packet(&avpkt);
+    ic = avformat_alloc_context();
+
+    // see http://stackoverflow.com/questions/9604633/reading-a-file-located-in-memory-with-libavformat
+    read_buf.data = (unsigned char*)av_malloc(4 * 1024);
+    read_buf.len = 4 * 1024;
+    avio = avio_alloc_context(read_buf.data, read_buf.len, 0, (void*)&file_contents, readFunction, NULL, NULL);
+    ic->pb = avio;
+
+    if (avformat_open_input(&ic, "", NULL, NULL) < 0)
+        return false;
+    if (avformat_find_stream_info(ic, NULL) < 0)
+        return false;
+    if (ic->nb_streams < 1)
+        return false;
+
+    // TODO: Handle audio video (so multiple streams)
+
+    AVStream* video_st = ic->streams[0];
+    avctx = video_st->codec;
+    AVCodec* codec = avcodec_find_decoder(avctx->codec_id);
+    avctx->codec_id = codec->id;
+
+    if (codec->capabilities & CODEC_CAP_DR1)
+        avctx->flags |= CODEC_FLAG_EMU_EDGE;
+
+    frame = avcodec_alloc_frame();
+    if (!frame)
+        return false;
+    avcodec_get_frame_defaults(frame);
+    av_free_packet(&avpkt);
+
+    if (avcodec_open2(avctx, codec, NULL) < 0)
+        return false;
+
+    return true;
+}
+
+void idCinematicImpl::InitImages()
+{
+
 }
 
 } // anon namespace
@@ -279,6 +318,7 @@ idCinematic::Alloc
 idCinematic* idCinematic::Alloc()
 {
     return new idCinematicImpl;
+    //return new idCinematic;
 }
 
 /*
