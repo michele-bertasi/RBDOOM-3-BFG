@@ -47,6 +47,7 @@ extern idCVar s_noSound;
 
 #include "tr_local.h"
 
+#define TEST 1
 
 namespace { // anon
 
@@ -116,6 +117,8 @@ private:
     bool InitFfmpeg();
     void InitImages();
     bool DecodeFrame();
+    void SaveToImage(idImage& img, uint8_t* data,
+                     int linesize, int width, int height);
 
     bool closed;
     bool good;
@@ -162,8 +165,10 @@ idCinematicImpl::~idCinematicImpl( )
 bool idCinematicImpl::InitFromFile( const char* qpath, bool looping )
 {
     this->looping = looping;
+#if !TEST
     if (!ReadFile(qpath))
         return false;
+#endif
 
     closed = false;
     if (!InitFfmpeg())
@@ -197,8 +202,8 @@ void idCinematicImpl::ResetTime( int milliseconds )
 
 cinData_t idCinematicImpl::ImageForTime( int milliseconds )
 {
-    av_read_frame(ic, &avpkt);
-    if (avpkt.size == 0)
+    int err = av_read_frame(ic, &avpkt);
+    if (err < 0 || avpkt.size == 0)
         return getDefaultData();
 
     while (avpkt.size > 0)
@@ -227,11 +232,17 @@ void idCinematicImpl::Close()
     if (closed) return;
 
     // cleanup the file
-    fileSystem->FreeFile(file_contents.data);
-    file_contents.data = NULL;
-    file_contents.len = 0;
+    if (file_contents.data)
+    {
+        fileSystem->FreeFile(file_contents.data);
+        file_contents.data = NULL;
+        file_contents.len = 0;
+    }
 
     // cleanup ffmpeg stuff
+    // TODO
+    // see: https://lists.ffmpeg.org/pipermail/libav-user/2012-December/003257.html
+    // and: http://stackoverflow.com/questions/9604633/reading-a-file-located-in-memory-with-libavformat
     if (ic)
     {
         avformat_free_context(ic);
@@ -268,14 +279,21 @@ bool idCinematicImpl::InitFfmpeg()
     av_init_packet(&avpkt);
     ic = avformat_alloc_context();
 
+#if !TEST
     // see http://stackoverflow.com/questions/9604633/reading-a-file-located-in-memory-with-libavformat
-    read_buf.data = (unsigned char*)av_malloc(4 * 1024);
-    read_buf.len = 4 * 1024;
+    const int BUFSIZE = 32768;
+    read_buf.data = (unsigned char*)av_malloc(BUFSIZE + FF_INPUT_BUFFER_PADDING_SIZE);
+    read_buf.len = BUFSIZE;
     avio = avio_alloc_context(read_buf.data, read_buf.len, 0, (void*)&file_contents, readFunction, NULL, NULL);
     ic->pb = avio;
 
     if (avformat_open_input(&ic, "", NULL, NULL) < 0)
         return false;
+#else
+    if (avformat_open_input(&ic, "/opt/doom3-bfg/base/video/erebusteam.bik", NULL, NULL) < 0)
+        return false;
+#endif
+
     if (avformat_find_stream_info(ic, NULL) < 0)
         return false;
     if (ic->nb_streams < 1)
@@ -315,14 +333,23 @@ bool idCinematicImpl::DecodeFrame()
 
     len = avcodec_decode_video2(avctx, frame, &got_frame, &avpkt);
     if (len < 0)
+    {
+        // DEBUG
+        char msg[1024];
+        av_strerror(len, msg, 1024);
+        // ----
         return false;
+    }
 
     if (got_frame)
     {
-        /* the picture is allocated by the decoder, no need to free it */
-//        pgm_save(frame->data[0], frame->linesize[0],
-//                 avctx->width, avctx->height, buf);
-//        ++frame_count;
+        // YUV420p in AVFrame
+        // http://lists.libav.org/pipermail/libav-user/2008-June/000632.html
+        int width = avctx->width, height = avctx->height;
+        int half_width = width / 2, half_height = height / 2;
+        SaveToImage(yImg, frame->data[0], frame->linesize[0], width, height);
+        SaveToImage(yImg, frame->data[1], frame->linesize[1], half_width, half_height);
+        SaveToImage(yImg, frame->data[2], frame->linesize[2], half_width, half_height);
     }
     if (avpkt.data)
     {
@@ -330,6 +357,13 @@ bool idCinematicImpl::DecodeFrame()
         avpkt.data += len;
     }
     return true;
+}
+
+void idCinematicImpl::
+SaveToImage(idImage& img, uint8_t* data,
+            int linesize, int width, int height)
+{
+    img.GenerateImage(data, width, height, TF_LINEAR, TR_CLAMP, TD_LIGHT);
 }
 
 } // anon namespace
